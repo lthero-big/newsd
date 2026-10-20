@@ -1,0 +1,614 @@
+{
+ "terms": [
+  {
+   "term": "LLM",
+   "aliases": [
+    "llms",
+    "large language model"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "GPT-5",
+   "aliases": [
+    "gpt 5",
+    "gpt-5.5",
+    "gpt-6",
+    "o3",
+    "o4-mini"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "GPT",
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "ChatGPT",
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "Claude",
+   "aliases": [
+    "claude opus",
+    "claude sonnet",
+    "claude haiku"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "Gemini",
+   "aliases": [
+    "gemini 3",
+    "gemini pro",
+    "gemini flash"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "Qwen",
+   "aliases": [
+    "qwen3",
+    "qwen 3",
+    "qwen3.5"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "DeepSeek",
+   "aliases": [
+    "deepseek-v4",
+    "deepseek r2",
+    "deepseek-r2"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "Llama",
+   "aliases": [
+    "llama 4",
+    "llama4",
+    "llama.cpp"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "Mistral",
+   "aliases": [
+    "mixtral",
+    "magistral",
+    "devstral"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "Kimi",
+   "group": "LLM"
+  },
+  {
+   "term": "GLM",
+   "aliases": [
+    "glm-5",
+    "zhipu"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "MiniMax",
+   "group": "LLM"
+  },
+  {
+   "term": "Grok",
+   "group": "LLM"
+  },
+  {
+   "term": "Gemma",
+   "group": "LLM"
+  },
+  {
+   "term": "Phi-4",
+   "group": "LLM"
+  },
+  {
+   "term": "GGUF",
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "vLLM",
+   "group": "LLM"
+  },
+  {
+   "term": "Ollama",
+   "group": "LLM"
+  },
+  {
+   "term": "SGLang",
+   "group": "LLM"
+  },
+  {
+   "term": "fine-tune",
+   "aliases": [
+    "fine-tuning",
+    "finetune",
+    "lora"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "reasoning model",
+   "aliases": [
+    "chain of thought",
+    "test-time compute"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "open weights",
+   "aliases": [
+    "open-weight",
+    "open weight",
+    "open-weights"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "tokenizer",
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "transformer",
+   "aliases": [
+    "transformers"
+   ],
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "inference",
+   "broad": true,
+   "group": "LLM"
+  },
+  {
+   "term": "quantization",
+   "aliases": [
+    "quantized",
+    "q4_k_m"
+   ],
+   "group": "LLM"
+  },
+  {
+   "term": "Sora",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Veo",
+   "aliases": [
+    "veo 3",
+    "veo3"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Kling",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Runway",
+   "aliases": [
+    "runwayml",
+    "gen-4"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Pika",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Hailuo",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Wan2",
+   "aliases": [
+    "wan 2.2",
+    "wan2.2",
+    "wan 2.5",
+    "wan video"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Seedance",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "LTX-Video",
+   "aliases": [
+    "ltxv",
+    "ltx video",
+    "ltx-2"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "HunyuanVideo",
+   "aliases": [
+    "hunyuan video"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Midjourney",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "FLUX",
+   "aliases": [
+    "flux.1",
+    "flux.2",
+    "flux 2",
+    "flux 3",
+    "bfl"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Stable Diffusion",
+   "aliases": [
+    "sdxl",
+    "sd3",
+    "sd 3.5"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "ComfyUI",
+   "broad": true,
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Qwen-Image",
+   "aliases": [
+    "qwen image"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "GPT Image",
+   "aliases": [
+    "gpt-image",
+    "dall-e",
+    "dalle"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Imagen",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Nano Banana",
+   "aliases": [
+    "nano-banana"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Ideogram",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Recraft",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Suno",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "Udio",
+   "group": "图片视频音频"
+  },
+  {
+   "term": "ElevenLabs",
+   "aliases": [
+    "eleven labs"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "text-to-speech",
+   "aliases": [
+    "tts",
+    "text to speech",
+    "voice cloning"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "speech recognition",
+   "aliases": [
+    "whisper",
+    "asr",
+    "speech-to-text"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "music generation",
+   "aliases": [
+    "ai music"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "text-to-video",
+   "aliases": [
+    "text to video",
+    "video generation",
+    "video model",
+    "image-to-video",
+    "i2v",
+    "t2v"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "text-to-image",
+   "aliases": [
+    "text to image",
+    "image generation",
+    "image model",
+    "image editing",
+    "image edit"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "diffusion",
+   "aliases": [
+    "diffusion model",
+    "diffusers"
+   ],
+   "broad": true,
+   "group": "图片视频音频"
+  },
+  {
+   "term": "upscaler",
+   "aliases": [
+    "upscale",
+    "upscaling"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "3D generation",
+   "aliases": [
+    "text-to-3d",
+    "gaussian splatting",
+    "3d model"
+   ],
+   "group": "图片视频音频"
+  },
+  {
+   "term": "agent",
+   "aliases": [
+    "agents",
+    "agentic",
+    "ai agent",
+    "ai agents"
+   ],
+   "broad": true,
+   "group": "Agent"
+  },
+  {
+   "term": "Claude Code",
+   "group": "Agent"
+  },
+  {
+   "term": "Codex",
+   "aliases": [
+    "codex cli"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "Cursor",
+   "group": "Agent"
+  },
+  {
+   "term": "Devin",
+   "group": "Agent"
+  },
+  {
+   "term": "Windsurf",
+   "group": "Agent"
+  },
+  {
+   "term": "MCP",
+   "aliases": [
+    "model context protocol",
+    "mcp server"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "computer use",
+   "aliases": [
+    "browser use",
+    "computer-use"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "coding agent",
+   "aliases": [
+    "coding assistant",
+    "agentic coding",
+    "vibe coding"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "OpenHands",
+   "group": "Agent"
+  },
+  {
+   "term": "Aider",
+   "group": "Agent"
+  },
+  {
+   "term": "Cline",
+   "group": "Agent"
+  },
+  {
+   "term": "LangChain",
+   "aliases": [
+    "langgraph"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "CrewAI",
+   "group": "Agent"
+  },
+  {
+   "term": "AutoGen",
+   "group": "Agent"
+  },
+  {
+   "term": "tool use",
+   "aliases": [
+    "function calling",
+    "tool calling"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "skills",
+   "aliases": [
+    "agent skills"
+   ],
+   "broad": true,
+   "group": "Agent"
+  },
+  {
+   "term": "workflow",
+   "aliases": [
+    "workflows"
+   ],
+   "broad": true,
+   "group": "Agent"
+  },
+  {
+   "term": "RAG",
+   "aliases": [
+    "retrieval augmented"
+   ],
+   "group": "Agent"
+  },
+  {
+   "term": "AI",
+   "aliases": [
+    "a.i.",
+    "artificial intelligence",
+    "人工智能",
+    "genai",
+    "generative ai"
+   ],
+   "broad": true,
+   "group": "AI"
+  },
+  {
+   "term": "OpenAI",
+   "group": "AI"
+  },
+  {
+   "term": "Anthropic",
+   "group": "AI"
+  },
+  {
+   "term": "Google DeepMind",
+   "aliases": [
+    "deepmind"
+   ],
+   "group": "AI"
+  },
+  {
+   "term": "Hugging Face",
+   "aliases": [
+    "huggingface"
+   ],
+   "group": "AI"
+  },
+  {
+   "term": "Meta AI",
+   "aliases": [
+    "meta superintelligence"
+   ],
+   "group": "AI"
+  },
+  {
+   "term": "xAI",
+   "group": "AI"
+  },
+  {
+   "term": "NVIDIA",
+   "aliases": [
+    "nvidia",
+    "cuda",
+    "gpu"
+   ],
+   "broad": true,
+   "group": "AI"
+  },
+  {
+   "term": "machine learning",
+   "aliases": [
+    "deep learning",
+    "neural network",
+    "ml"
+   ],
+   "broad": true,
+   "group": "AI"
+  },
+  {
+   "term": "benchmark",
+   "aliases": [
+    "benchmarks",
+    "eval",
+    "evals",
+    "leaderboard",
+    "arena"
+   ],
+   "broad": true,
+   "group": "AI"
+  },
+  {
+   "term": "model",
+   "aliases": [
+    "models"
+   ],
+   "broad": true,
+   "group": "AI"
+  },
+  {
+   "term": "alignment",
+   "aliases": [
+    "ai safety",
+    "interpretability"
+   ],
+   "group": "AI"
+  }
+ ]
+}

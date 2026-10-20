@@ -1,0 +1,14 @@
+{
+  "schema_version": "2.0",
+  "date": "2026-10-16",
+  "window": { "start": "2026-10-15T05:00:00+00:00", "end": "2026-10-16T05:00:00+00:00", "timezone": "Asia/Shanghai" },
+  "headline": "FLUX 3 Image Klein open weights",
+  "modules": [],
+  "items": [
+    { "module": "model", "kind": "post", "title": "FLUX 3 Image Klein: open weights image generation", "excerpt": "Black Forest Labs released a 5.6B model.", "url": "https://bfl.ai/models/flux-3-image-klein", "source": "hn", "source_label": "Hacker News", "published_at": "2026-10-15T20:00:00+00:00", "metrics": { "points": 420, "comments": 120 }, "tags": ["AI", "图片视频音频"], "score": { "total": 70 }, "links": [{ "label": "讨论", "url": "https://news.ycombinator.com/item?id=1" }] },
+    { "module": "opensource", "kind": "repo", "title": "acme/agent-kit", "excerpt": "Agent toolkit.", "url": "https://github.com/acme/agent-kit", "source": "github", "source_label": "GitHub", "published_at": "2026-10-14T00:00:00+00:00", "metrics": { "stars": 900, "forks": 40 }, "tags": ["Agent"], "score": { "total": 50 }, "links": [] },
+    { "module": "community", "kind": "post", "title": "Klein workflow in ComfyUI", "excerpt": "", "url": "https://www.reddit.com/r/comfyui/comments/abc/klein/", "source": "reddit", "source_label": "r/comfyui", "published_at": null, "metrics": { "points": 80 }, "tags": ["AI", "图片视频音频", "Agent"], "score": { "total": 40 }, "links": [] }
+  ],
+  "arena": { "boards": [ { "name": "code", "snapshot_date": "2026-10-13", "fetch_status": "ok", "rows": [ { "rank": 1, "model": "model-a", "score": 1800, "delta": null } ] } ] },
+  "meta": { "generated_at": "2026-10-16T05:00:00+00:00", "generator": "test", "visibility": "public" }
+}

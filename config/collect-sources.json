@@ -1,0 +1,197 @@
+{
+  "hn": {
+    "endpoint": "https://hn.algolia.com/api/v1/search_by_date",
+    "hits_per_page": 20,
+    "points_min": 5,
+    "show_points_min": 1,
+    "max_pages": 2,
+    "queries": [
+      "OpenAI",
+      "Anthropic",
+      "Claude",
+      "Gemini",
+      "GPT",
+      "LLM",
+      "Qwen",
+      "DeepSeek",
+      "Llama",
+      "Mistral",
+      "FLUX",
+      "agent",
+      "Sora",
+      "diffusion",
+      "open source model",
+      "Hugging Face"
+    ]
+  },
+  "reddit": {
+    "feeds": [
+      {
+        "subreddit": "LocalLLaMA",
+        "mode": "new"
+      },
+      {
+        "subreddit": "StableDiffusion",
+        "mode": "new"
+      },
+      {
+        "subreddit": "comfyui",
+        "mode": "new"
+      }
+    ]
+  },
+  "rss": [
+    {
+      "id": "comfyui-releases",
+      "url": "https://github.com/comfyanonymous/ComfyUI/releases.atom"
+    },
+    {
+      "id": "llamacpp-releases",
+      "url": "https://github.com/ggml-org/llama.cpp/releases.atom"
+    },
+    {
+      "id": "ollama-releases",
+      "url": "https://github.com/ollama/ollama/releases.atom"
+    },
+    {
+      "id": "vllm-releases",
+      "url": "https://github.com/vllm-project/vllm/releases.atom"
+    },
+    {
+      "id": "transformers-releases",
+      "url": "https://github.com/huggingface/transformers/releases.atom"
+    },
+    {
+      "id": "diffusers-releases",
+      "url": "https://github.com/huggingface/diffusers/releases.atom"
+    },
+    {
+      "id": "hf-blog",
+      "url": "https://huggingface.co/blog/feed.xml"
+    },
+    {
+      "id": "openai-news",
+      "url": "https://openai.com/news/rss.xml"
+    },
+    {
+      "id": "google-ai-blog",
+      "url": "https://blog.google/technology/ai/rss/"
+    }
+  ],
+  "github_search": {
+    "queries": [
+      "topic:llm",
+      "topic:ai-agents",
+      "topic:generative-ai",
+      "topic:diffusion",
+      "topic:text-to-speech",
+      "topic:mcp"
+    ],
+    "created_days": 14,
+    "min_stars": 50,
+    "per_query": 15
+  },
+  "hf_trending": {
+    "limit": 20
+  },
+  "ossinsight": {
+    "period": "past_24_hours",
+    "language": "All",
+    "limit": 25
+  },
+  "rsshub": {
+    "_note": "自建 RSSHub（RSSHUB_BASE + RSSHUB_ACCESS_KEY 在 ~/.config/news-daily/env）；未配置时插件跳过。与 rss 里已有的源不重复（如 openai-news）。",
+    "routes": [
+      {
+        "id": "rsshub-qbitai",
+        "route": "/qbitai/category/资讯",
+        "label": "量子位"
+      },
+      {
+        "id": "rsshub-qbitai-llm",
+        "route": "/qbitai/tag/大模型",
+        "label": "量子位·大模型"
+      },
+      {
+        "id": "rsshub-infoq-ai",
+        "route": "/infoq/topic/AI",
+        "label": "InfoQ AI"
+      },
+      {
+        "id": "rsshub-anthropic",
+        "route": "/anthropic/news",
+        "label": "Anthropic News"
+      },
+      {
+        "id": "rsshub-hf-papers",
+        "route": "/huggingface/daily-papers",
+        "label": "HF Daily Papers",
+        "max": 8
+      }
+    ]
+  },
+  "x": {
+    "_note": "routine 用 scripts/collect/x_queries.py 生成 search_posts_all 查询；主人可在 /sources 增删关键词和账号。",
+    "suffix": "has:images -is:retweet -is:reply lang:en",
+    "queries": [
+      {
+        "id": "models",
+        "label": "模型",
+        "terms": [
+          "GPT",
+          "Claude",
+          "Gemini",
+          "Qwen",
+          "DeepSeek",
+          "Llama",
+          "\"open weights\"",
+          "\"new model\""
+        ]
+      },
+      {
+        "id": "agents",
+        "label": "Agent / 图片视频音频 / 开源",
+        "terms": [
+          "\"AI agent\"",
+          "\"coding agent\"",
+          "Sora",
+          "Veo",
+          "Kling",
+          "Flux",
+          "Midjourney",
+          "ElevenLabs",
+          "\"text-to-video\"",
+          "\"open source\" LLM"
+        ]
+      },
+      {
+        "id": "prompts",
+        "label": "提示词（每期必有 1–2 条）",
+        "terms": [
+          "prompt",
+          "prompts",
+          "提示词"
+        ],
+        "and": [
+          "gpt-image",
+          "\"gpt image\"",
+          "\"nano banana\"",
+          "\"grok imagine\"",
+          "midjourney",
+          "seedream",
+          "flux"
+        ],
+        "suffix": "has:media -is:retweet -is:reply",
+        "min_likes": 30,
+        "max_results": 50
+      }
+    ],
+    "accounts": [],
+    "min_likes": 20,
+    "low_min_likes": 3,
+    "low_threshold_groups": [
+      "特别关注"
+    ],
+    "max_query_len": 480
+  }
+}

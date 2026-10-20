@@ -1,0 +1,38 @@
+[project]
+name = "newsd"
+version = "0.1.0"
+description = "Self-hosted, multi-user AI news daily (successor of news-daily)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "TBD" }
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "sqlalchemy>=2.0",
+  "jinja2>=3.1",
+  "python-multipart>=0.0.9",
+  "apscheduler>=3.10,<4",
+  "cryptography>=42",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+extract = ["trafilatura>=1.8"]
+postgres = ["psycopg[binary]>=3.1"]
+
+[project.scripts]
+newsd = "newsd.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["newsd*"]
+
+[tool.setuptools.package-data]
+newsd = ["web/templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    env_file: .env
+    environment:
+      NEWSD_DATABASE_URL: sqlite:////data/newsd.db
+    volumes:
+      - newsd-data:/data
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+  # worker (scheduled collection / generation) is added in M2
+volumes:
+  newsd-data:

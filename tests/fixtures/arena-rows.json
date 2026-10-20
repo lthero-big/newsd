@@ -1,0 +1,6 @@
+[
+  {"model_name": "old-model", "organization": "Old Org", "license": "Apache-2.0", "rating": 1000, "vote_count": 10, "rank": 1, "category": "overall", "leaderboard_publish_date": "2026-10-14"},
+  {"model_name": "new-model", "organization": "New Org", "license": "MIT", "rating": 1100, "vote_count": 20, "rank": 1, "category": "overall", "leaderboard_publish_date": "2026-10-15"},
+  {"model_name": "second-model", "organization": "Second Org", "license": "MIT", "rating": 1050, "vote_count": 15, "rank": 2, "category": "overall", "leaderboard_publish_date": "2026-10-15"},
+  {"model_name": "hidden-category", "organization": "Hidden", "license": "MIT", "rating": 9999, "vote_count": 99, "rank": 1, "category": "style_control", "leaderboard_publish_date": "2026-10-20"}
+]

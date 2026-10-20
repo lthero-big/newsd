@@ -1,0 +1,53 @@
+{
+  "_doc": "Card tag keyword map for schema 2.0. specific=true terms count as high keyword specificity in scoring. Tags: AI, LLM, 图片视频音频, Agent.",
+  "tags": {
+    "LLM": [
+      {"term": "LLM", "aliases": ["llms", "large language model"], "broad": true},
+      {"term": "GPT-5", "aliases": ["gpt 5", "gpt-5.5", "gpt-6", "o3", "o4-mini"]},
+      {"term": "GPT", "broad": true}, {"term": "ChatGPT", "broad": true},
+      {"term": "Claude", "aliases": ["claude opus", "claude sonnet", "claude haiku"], "broad": true},
+      {"term": "Gemini", "aliases": ["gemini 3", "gemini pro", "gemini flash"], "broad": true},
+      {"term": "Qwen", "aliases": ["qwen3", "qwen 3", "qwen3.5"], "broad": true},
+      {"term": "DeepSeek", "aliases": ["deepseek-v4", "deepseek r2", "deepseek-r2"]},
+      {"term": "Llama", "aliases": ["llama 4", "llama4", "llama.cpp"]},
+      {"term": "Mistral", "aliases": ["mixtral", "magistral", "devstral"]},
+      {"term": "Kimi"}, {"term": "GLM", "aliases": ["glm-5", "zhipu"]}, {"term": "MiniMax"},
+      {"term": "Grok"}, {"term": "Gemma"}, {"term": "Phi-4"},
+      {"term": "GGUF", "broad": true}, {"term": "vLLM"}, {"term": "Ollama"}, {"term": "SGLang"},
+      {"term": "fine-tune", "aliases": ["fine-tuning", "finetune", "lora"], "broad": true},
+      {"term": "reasoning model", "aliases": ["chain of thought", "test-time compute"]},
+      {"term": "open weights", "aliases": ["open-weight", "open weight", "open-weights"]},
+      {"term": "tokenizer", "broad": true}, {"term": "transformer", "aliases": ["transformers"], "broad": true},
+      {"term": "inference", "broad": true}, {"term": "quantization", "aliases": ["quantized", "q4_k_m"]}
+    ],
+    "图片视频音频": [
+      {"term": "Sora"}, {"term": "Veo", "aliases": ["veo 3", "veo3"]}, {"term": "Kling"}, {"term": "Runway", "aliases": ["runwayml", "gen-4"]},
+      {"term": "Pika"}, {"term": "Hailuo"}, {"term": "Wan2", "aliases": ["wan 2.2", "wan2.2", "wan 2.5", "wan video"]}, {"term": "Seedance"}, {"term": "LTX-Video", "aliases": ["ltxv", "ltx video", "ltx-2"]},
+      {"term": "HunyuanVideo", "aliases": ["hunyuan video"]}, {"term": "Midjourney"}, {"term": "FLUX", "aliases": ["flux.1", "flux.2", "flux 2", "flux 3", "bfl"]},
+      {"term": "Stable Diffusion", "aliases": ["sdxl", "sd3", "sd 3.5"]}, {"term": "ComfyUI", "broad": true}, {"term": "Qwen-Image", "aliases": ["qwen image"]},
+      {"term": "GPT Image", "aliases": ["gpt-image", "dall-e", "dalle"]}, {"term": "Imagen"}, {"term": "Nano Banana", "aliases": ["nano-banana"]}, {"term": "Ideogram"}, {"term": "Recraft"},
+      {"term": "Suno"}, {"term": "Udio"}, {"term": "ElevenLabs", "aliases": ["eleven labs"]}, {"term": "text-to-speech", "aliases": ["tts", "text to speech", "voice cloning"]},
+      {"term": "speech recognition", "aliases": ["whisper", "asr", "speech-to-text"]}, {"term": "music generation", "aliases": ["ai music"]},
+      {"term": "text-to-video", "aliases": ["text to video", "video generation", "video model", "image-to-video", "i2v", "t2v"]},
+      {"term": "text-to-image", "aliases": ["text to image", "image generation", "image model", "image editing", "image edit"]},
+      {"term": "diffusion", "aliases": ["diffusion model", "diffusers"], "broad": true}, {"term": "upscaler", "aliases": ["upscale", "upscaling"]},
+      {"term": "3D generation", "aliases": ["text-to-3d", "gaussian splatting", "3d model"]}
+    ],
+    "Agent": [
+      {"term": "agent", "aliases": ["agents", "agentic", "ai agent", "ai agents"], "broad": true},
+      {"term": "Claude Code"}, {"term": "Codex", "aliases": ["codex cli"]}, {"term": "Cursor"}, {"term": "Devin"}, {"term": "Windsurf"},
+      {"term": "MCP", "aliases": ["model context protocol", "mcp server"]}, {"term": "computer use", "aliases": ["browser use", "computer-use"]},
+      {"term": "coding agent", "aliases": ["coding assistant", "agentic coding", "vibe coding"]}, {"term": "OpenHands"}, {"term": "Aider"}, {"term": "Cline"},
+      {"term": "LangChain", "aliases": ["langgraph"]}, {"term": "CrewAI"}, {"term": "AutoGen"}, {"term": "tool use", "aliases": ["function calling", "tool calling"]},
+      {"term": "skills", "aliases": ["agent skills"], "broad": true}, {"term": "workflow", "aliases": ["workflows"], "broad": true}, {"term": "RAG", "aliases": ["retrieval augmented"]}
+    ],
+    "AI": [
+      {"term": "AI", "aliases": ["a.i.", "artificial intelligence", "人工智能", "genai", "generative ai"], "broad": true},
+      {"term": "OpenAI"}, {"term": "Anthropic"}, {"term": "Google DeepMind", "aliases": ["deepmind"]}, {"term": "Hugging Face", "aliases": ["huggingface"]},
+      {"term": "Meta AI", "aliases": ["meta superintelligence"]}, {"term": "xAI"}, {"term": "NVIDIA", "aliases": ["nvidia", "cuda", "gpu"], "broad": true},
+      {"term": "machine learning", "aliases": ["deep learning", "neural network", "ml"], "broad": true}, {"term": "benchmark", "aliases": ["benchmarks", "eval", "evals", "leaderboard", "arena"], "broad": true},
+      {"term": "model", "aliases": ["models"], "broad": true}, {"term": "alignment", "aliases": ["ai safety", "interpretability"]}
+    ]
+  },
+  "model_release_patterns": ["\\breleas(e|es|ed|ing)\\b", "\\blaunch(es|ed)?\\b", "\\bintroduc(es|ing)\\b", "\\bannounc(es|ed|ing)\\b", "\\bopen[- ]?(sources?|weights?)\\b", "\\bnow available\\b", "\\bv\\d+(\\.\\d+)+\\b", "\\bmodel card\\b", "发布", "开源"]
+}
