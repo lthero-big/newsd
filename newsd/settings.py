@@ -21,7 +21,7 @@ def _load_dotenv(path: Path) -> None:
 class Settings:
     secret_key: str = field(default_factory=lambda: os.environ.get("NEWSD_SECRET_KEY", ""))
     database_url: str = field(default_factory=lambda: os.environ.get("NEWSD_DATABASE_URL", "sqlite:///./var/newsd.db"))
-    registration: str = field(default_factory=lambda: os.environ.get("NEWSD_REGISTRATION", "invite"))  # invite | open | closed
+    registration: str = field(default_factory=lambda: os.environ.get("NEWSD_REGISTRATION", "invite"))  # invite | open | closed (default; admin can override at runtime)
     cookie_secure: bool = field(default_factory=lambda: os.environ.get("NEWSD_COOKIE_SECURE", "0") == "1")
     session_days: int = field(default_factory=lambda: int(os.environ.get("NEWSD_SESSION_DAYS", "30")))
     login_max_failures: int = 3

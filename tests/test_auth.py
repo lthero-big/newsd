@@ -43,3 +43,45 @@ def test_three_failed_logins_lock_ip(client):
     for _ in range(3):
         assert login(client, "root", "wrong-password").status_code == 401
     assert login(client, "root", "rootpass123").status_code == 429
+
+
+def test_open_registration_accepts_public_and_invite(client):
+    login(client, "root", "rootpass123")
+    assert client.post("/api/admin/registration", data={"mode": "open"}).json()["mode"] == "open"
+    inv = client.post("/api/admin/invites").json()["invite"]
+    client.cookies.clear()
+    assert client.get("/api/registration").json()["mode"] == "open"
+    # public sign-up without a code
+    assert client.post("/api/register", data={"username": "pub", "password": "pubpass123"}).status_code == 200
+    # an invite code still works in open mode, and a wrong one is rejected rather than ignored
+    assert client.post("/api/register", data={"username": "inv", "password": "invpass123", "invite": inv}).status_code == 200
+    assert client.post("/api/register", data={"username": "bad", "password": "badpass123", "invite": "nope"}).status_code == 403
+    assert client.post("/api/register", data={"username": "pub", "password": "pubpass123"}).status_code == 409
+    assert login(client, "pub", "pubpass123").status_code == 303
+
+
+def test_registration_mode_switch_and_web_form(client):
+    assert client.get("/api/registration").json()["mode"] == "invite"
+    assert client.post("/api/register", data={"username": "x1", "password": "x1pass123"}).status_code == 403
+    login(client, "root", "rootpass123")
+    assert client.post("/api/admin/registration", data={"mode": "bogus"}).status_code == 400
+    client.post("/api/admin/registration", data={"mode": "closed"})
+    client.cookies.clear()
+    assert client.post("/api/register", data={"username": "x2", "password": "x2pass123"}).status_code == 403
+    assert "不开放注册" in client.get("/register").text
+    login(client, "root", "rootpass123")
+    client.post("/api/admin/registration", data={"mode": "open"})
+    client.cookies.clear()
+    assert "/register" in client.get("/login").text
+    r = client.post("/register", data={"username": "web", "password": "webpass123"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith("/login")
+    # non-admin cannot change the mode
+    login(client, "web", "webpass123")
+    assert client.post("/api/admin/registration", data={"mode": "invite"}).status_code == 403
+
+
+def test_cli_registration_mode(client, capsys):
+    from newsd.cli import main
+    main(["admin", "registration", "open"])
+    assert capsys.readouterr().out.strip() == "open"
+    assert client.get("/api/registration").json()["mode"] == "open"

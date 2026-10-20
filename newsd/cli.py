@@ -20,6 +20,8 @@ def main(argv=None) -> int:
     c.add_argument("username")
     c.add_argument("--password", help="omit to be prompted")
     asub.add_parser("invite", help="print a new invite code")
+    r = asub.add_parser("registration", help="show or set the registration mode")
+    r.add_argument("mode", nargs="?", choices=["invite", "open", "closed"], help="omit to show the current mode")
     args = p.parse_args(argv)
 
     from .db import SessionLocal, init_db
@@ -52,6 +54,11 @@ def main(argv=None) -> int:
             db.add(Invite(code_hash=token_hash(code)))
             db.commit()
             print(code)
+        elif args.acmd == "registration":
+            from .registration import get_registration_mode, set_registration_mode
+            if args.mode:
+                set_registration_mode(db, args.mode)
+            print(get_registration_mode(db))
     finally:
         db.close()
     return 0

@@ -1,4 +1,4 @@
-"""FastAPI app: M1 covers accounts (login/logout/register by invite), API tokens and the admin user list.
+"""FastAPI app: M1 covers accounts (login/logout/register by invite or open sign-up), API tokens and the admin user list.
 Edition pages, settings and pipeline endpoints arrive in M2/M3."""
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from . import __version__
 from .auth import COOKIE, authenticate, client_ip, create_session, current_user, get_db, require_admin, require_user
 from .db import init_db
 from .models import ApiToken, Invite, User, WebSession, now
+from .registration import REG_MODES, get_registration_mode, register_user, set_registration_mode
 from .security import hash_password, new_token, token_hash
 from .settings import get_settings
 
@@ -34,14 +35,14 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(request, "home.html", {"user": user})
 
     @app.get("/login", response_class=HTMLResponse)
-    def login_page(request: Request):
-        return templates.TemplateResponse(request, "login.html", {"error": None, "registration": get_settings().registration})
+    def login_page(request: Request, db=Depends(get_db)):
+        return templates.TemplateResponse(request, "login.html", {"error": None, "registration": get_registration_mode(db)})
 
     @app.post("/login")
     def login(request: Request, username: str = Form(...), password: str = Form(...), db=Depends(get_db)):
         user = authenticate(db, client_ip(request), username, password)
         if not user:
-            return templates.TemplateResponse(request, "login.html", {"error": "用户名或密码错误", "registration": get_settings().registration}, status_code=401)
+            return templates.TemplateResponse(request, "login.html", {"error": "用户名或密码错误", "registration": get_registration_mode(db)}, status_code=401)
         resp = RedirectResponse("/", 303)
         resp.set_cookie(COOKIE, create_session(db, user), httponly=True, samesite="lax",
                         secure=get_settings().cookie_secure, max_age=get_settings().session_days * 86400)
@@ -57,27 +58,28 @@ def create_app() -> FastAPI:
         resp.delete_cookie(COOKIE)
         return resp
 
+    @app.get("/register", response_class=HTMLResponse)
+    def register_page(request: Request, db=Depends(get_db)):
+        return templates.TemplateResponse(request, "register.html", {"error": None, "registration": get_registration_mode(db)})
+
+    @app.post("/register")
+    def register_form(request: Request, username: str = Form(...), password: str = Form(...), invite: str = Form(""), db=Depends(get_db)):
+        try:
+            register_user(db, username, password, invite)
+        except HTTPException as e:
+            msg = {"registration closed": "注册已关闭", "invalid invite": "邀请码无效或已用过",
+                   "username taken": "用户名已被占用"}.get(e.detail, "用户名至少 2 个字符，密码至少 8 个字符")
+            return templates.TemplateResponse(request, "register.html", {"error": msg, "registration": get_registration_mode(db)}, status_code=e.status_code)
+        return RedirectResponse("/login?registered=1", 303)
+
     @app.post("/api/register")
     def register(username: str = Form(...), password: str = Form(...), invite: str = Form(""), db=Depends(get_db)):
-        mode = get_settings().registration
-        if mode == "closed":
-            raise HTTPException(403, "registration closed")
-        inv = None
-        if mode == "invite":
-            inv = db.scalar(select(Invite).where(Invite.code_hash == token_hash(invite), Invite.used_by.is_(None)))
-            if not inv or (inv.expires_at and inv.expires_at < now()):
-                raise HTTPException(403, "invalid invite")
-        if len(username) < 2 or len(password) < 8:
-            raise HTTPException(400, "username >= 2 chars, password >= 8 chars")
-        if db.scalar(select(User).where(User.username == username)):
-            raise HTTPException(409, "username taken")
-        u = User(username=username, password_hash=hash_password(password))
-        db.add(u)
-        db.flush()
-        if inv:
-            inv.used_by = u.id
-        db.commit()
+        u = register_user(db, username, password, invite)
         return {"id": u.id, "username": u.username}
+
+    @app.get("/api/registration")
+    def registration_info(db=Depends(get_db)):
+        return {"mode": get_registration_mode(db)}
 
     @app.get("/api/me")
     def me(user=Depends(require_user)):
@@ -108,6 +110,13 @@ def create_app() -> FastAPI:
         db.add(Invite(code_hash=token_hash(code), created_by=admin.id))
         db.commit()
         return {"invite": code}
+
+    @app.post("/api/admin/registration")
+    def admin_registration(mode: str = Form(...), _=Depends(require_admin), db=Depends(get_db)):
+        if mode not in REG_MODES:
+            raise HTTPException(400, "mode must be one of: " + ", ".join(REG_MODES))
+        set_registration_mode(db, mode)
+        return {"mode": mode}
 
     @app.post("/api/admin/users/{uid}/active")
     def admin_set_active(uid: int, active: bool = Form(...), _=Depends(require_admin), db=Depends(get_db)):
