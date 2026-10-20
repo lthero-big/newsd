@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% block title %}设置 · newsd{% endblock %}
+{% block body %}<main><h1>设置</h1>
+<p><a href="/">返回</a></p>
+<section><h2>模型</h2>
+<p>只需选服务商、填模型名和 API key。key 用服务器主密钥加密保存，保存后不会再显示。不填 key 时日报照常生成，只是不做 AI 重排、语义去重和翻译。</p>
+<form id="llm">
+<label>服务商 <select name="provider">{% for p in providers %}<option value="{{ p.provider }}"{% if p.provider == llm.provider %} selected{% endif %}{% if not p.available %} disabled{% endif %}>{{ p.label }}</option>{% endfor %}</select></label>
+<label>模型 <input name="model" value="{{ llm.model or '' }}" placeholder="例如 deepseek-chat、claude-sonnet-4-5、qwen-plus" maxlength="128" required></label>
+<label>API key <input name="api_key" type="password" autocomplete="off" placeholder="{% if llm.has_key %}已保存（…{{ llm.key_last4 or '' }}），留空则不改{% else %}未设置{% endif %}"></label>
+<label>翻译成 <select name="translate_to">{% for l, n in langs %}<option value="{{ l }}"{% if l == llm.translate_to %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<button type="submit">保存</button> <button type="button" id="test">测试连接</button>
+{% if llm.configured %} <button type="button" id="del">删除模型设置</button>{% endif %}
+</form>
+<p id="llm-status" role="status"></p>
+</section>
+<section><h2>内容类别</h2>
+<p>勾选要看的类别。分数（0–10）达到阈值的条目才会进日报；阈值可以调。</p>
+<form id="profiles">
+{% for p in profiles %}<p><label><input type="checkbox" name="pick" value="{{ p.name }}"{% if p.name in picked %} checked{% endif %}> {{ p.title }}</label>
+<label>阈值 <input type="number" name="thr-{{ p.name }}" min="0" max="10" step="0.5" value="{{ picked.get(p.name, p.threshold) }}"></label>
+<small>默认 {{ p.threshold }}；栏目：{{ p.sections|join('、') }}</small></p>{% endfor %}
+<button type="submit">保存类别</button>
+</form>
+<p id="prof-status" role="status"></p>
+</section>
+<script>
+const $ = (s) => document.querySelector(s);
+function llmBody(withKey) {
+  const f = new FormData($("#llm")); const b = {provider: f.get("provider"), model: f.get("model").trim(), translate_to: f.get("translate_to")};
+  const k = f.get("api_key").trim(); if (withKey && k) b.api_key = k; return b;
+}
+async function call(method, url, body) {
+  const r = await fetch(url, {method, headers: {"content-type": "application/json"}, body: body === undefined ? undefined : JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return [r.ok, j];
+}
+$("#llm").addEventListener("submit", async (e) => {
+  e.preventDefault(); const [ok, j] = await call("PUT", "/api/me/llm", llmBody(true));
+  $("#llm-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+  if (ok) { $("#llm").api_key.value = ""; }
+});
+$("#test").addEventListener("click", async () => {
+  $("#llm-status").textContent = "测试中…"; const b = llmBody(true); delete b.translate_to;
+  const [ok, j] = await call("POST", "/api/me/llm/test", b);
+  $("#llm-status").textContent = ok && j.ok ? `连接成功（${j.latency_ms} ms）` : "连接失败：" + (j.error || "");
+});
+const del = $("#del"); if (del) del.addEventListener("click", async () => {
+  const [ok] = await call("DELETE", "/api/me/llm"); if (ok) location.reload();
+});
+$("#profiles").addEventListener("submit", async (e) => {
+  e.preventDefault(); const f = new FormData($("#profiles"));
+  const picks = f.getAll("pick").map((n) => ({name: n, threshold: parseFloat(f.get("thr-" + n))}));
+  const [ok, j] = await call("PUT", "/api/me/profiles", picks);
+  $("#prof-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+});
+</script>
+</main>{% endblock %}

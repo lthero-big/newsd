@@ -25,6 +25,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="newsd", version=__version__)
     from .prefs import router as prefs_router
     app.include_router(prefs_router)
+    from .llm.api import router as llm_router
+    app.include_router(llm_router)
 
     @app.get("/healthz")
     def healthz():
@@ -35,6 +37,21 @@ def create_app() -> FastAPI:
         if user is None:
             return RedirectResponse("/login", 303)
         return templates.TemplateResponse(request, "home.html", {"user": user})
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+        if user is None:
+            return RedirectResponse("/login", 303)
+        from .llm import keys as llm_keys
+        from .llm.client import KEYLESS, PROVIDER_LABELS, PROVIDERS, base_url
+        from .llm.profiles import all_profiles, get_picks
+        providers = [{"provider": p, "label": PROVIDER_LABELS[p], "available": bool(base_url(p)), "keyless": p in KEYLESS}
+                     for p in PROVIDERS]
+        picked = {p["name"]: p["threshold"] for p in get_picks(db, user.id)}
+        return templates.TemplateResponse(request, "settings.html", {
+            "user": user, "providers": providers, "llm": llm_keys.public_settings(db, user.id),
+            "langs": [("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
+            "profiles": list(all_profiles().values()), "picked": picked})
 
     @app.get("/login", response_class=HTMLResponse)
     def login_page(request: Request, db=Depends(get_db)):

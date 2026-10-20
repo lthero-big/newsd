@@ -1,3 +1,4 @@
 {% extends "base.html" %}{% block body %}<main><h1>你好，{{ user.username }}</h1>
 <p>日报页面将在 M3 接入。</p>
+<p><a href="/settings">设置（模型、内容类别）</a></p>
 <form method="post" action="/logout"><button>退出</button></form></main>{% endblock %}

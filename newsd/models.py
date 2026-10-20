@@ -237,3 +237,36 @@ class Extraction(Base):
     image: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta_from: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+# ---------------------------------------------------------------- M2-4: model layer
+
+class TranslationCache(Base):
+    """Shared by all users: one row per (target language, normalized source text)."""
+    __tablename__ = "translation_cache"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # sha256(target_lang + "\n" + normalized text)
+    target_lang: Mapped[str] = mapped_column(String(16))
+    source_text: Mapped[str] = mapped_column(Text)
+    translated: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(191), default="")  # provider/model that produced it
+    hits: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class ItemScore(Base):
+    """A user's processing-profile verdict for one pool item. status: ok | empty (invalid JSON after one
+    repair, or item missing from the reply) | error:<kind>. Empty/error rows are retried on the next run."""
+    __tablename__ = "item_scores"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", "profile"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
+    profile: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="ok")
+    belongs: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    section: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str] = mapped_column(String(191), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

@@ -27,6 +27,15 @@ def main(argv=None) -> int:
     pr.add_argument("--kinds", help="comma-separated source kinds to include (rss,reddit,rsshub,x_account,x_query,plugin)")
     pr.add_argument("--no-extract", action="store_true", help="skip full-text extraction")
     pr.add_argument("--lookback-hours", type=float, default=26, help="only items published this recently get full-text extraction")
+    pc = sub.add_parser("process", help="per-user model processing (profiles, AI re-rank, dedup, translation)")
+    pcsub = pc.add_subparsers(dest="xcmd", required=True)
+    px = pcsub.add_parser("run", help="rank one user's pool items; without a model key only rule ranking runs")
+    px.add_argument("username")
+    px.add_argument("--since-hours", type=float, default=26)
+    px.add_argument("--max-items", type=int)
+    px.add_argument("--no-ai", action="store_true", help="skip every model call (rule ranking + cached translations)")
+    px.add_argument("--no-rerank", action="store_true"); px.add_argument("--no-dedupe", action="store_true")
+    px.add_argument("--no-translate", action="store_true")
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
@@ -67,6 +76,22 @@ def main(argv=None) -> int:
             report = run_cycle_sync(db, args.cycle or cycle_key(period_minutes=args.period), kinds=kinds, extract=not args.no_extract,
                                     lookback_hours=args.lookback_hours)
             print(_json.dumps(report, ensure_ascii=False))
+        finally:
+            db.close()
+        return 0
+    if args.cmd == "process":
+        import json as _json
+        from .llm.process import process_user_sync
+        db = SessionLocal()
+        try:
+            u = db.scalar(select(User).where(User.username == args.username))
+            if u is None:
+                print("no such user", file=sys.stderr)
+                return 1
+            report = process_user_sync(db, u.id, client=None if args.no_ai else "auto", since_hours=args.since_hours,
+                                       max_items=args.max_items, rerank=not args.no_rerank, dedupe=not args.no_dedupe,
+                                       translate=not args.no_translate)
+            print(_json.dumps(report, ensure_ascii=False, default=str))
         finally:
             db.close()
         return 0
