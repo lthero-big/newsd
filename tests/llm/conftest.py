@@ -1,0 +1,35 @@
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+@pytest.fixture()
+def db(tmp_path, monkeypatch):
+    monkeypatch.setenv("NEWSD_DATABASE_URL", f"sqlite:///{tmp_path}/llm.db")
+    monkeypatch.setenv("NEWSD_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("NEWSD_ENV_FILE", str(tmp_path / "none.env"))
+    from newsd.db import SessionLocal, init_db, reset_engine
+    from newsd.settings import reset_settings
+
+    reset_settings(); reset_engine()
+    init_db()
+    s = SessionLocal()
+    yield s
+    s.close()
+    reset_engine(); reset_settings()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_network(monkeypatch):
+    """Every per-user client goes through a transport that fails loudly unless a test installs a fake."""
+    import httpx
+
+    from newsd.llm import keys
+
+    def refuse(request):
+        raise AssertionError(f"unexpected real model call to {request.url}")
+
+    monkeypatch.setattr(keys, "TRANSPORT", httpx.MockTransport(refuse))

@@ -9,7 +9,8 @@
 - [ ] M2 管线迁移：
   - [x] M2-1 源目录、订阅、关键词、配额进数据库。
   - [x] M2-2 共享采集池（每源每周期只抓一次，`newsd pool run`）+ trafilatura 全文与元数据抽取（按源开关、共享缓存、失败退回源摘要），X 只走自建 RSSHub，不再依赖本机 gh CLI。见 [docs/m2-2-shared-pool.md](docs/m2-2-shared-pool.md)。
-  - [ ] 按用户打分/配额/翻译、调度器。
+  - [x] M2-4 模型层：多服务商 LLM 客户端（OpenAI 兼容 / Anthropic / Gemini / DeepSeek / 通义 / 豆包 / Ollama，限速、并发上限、退避重试、非法 JSON 修复一次）、用户 key 用服务器主密钥加密存储、设置页“测试连接”、全站共享翻译缓存、按类别的处理配置（Markdown 提示词 + 阈值）、可选 AI 重排和语义去重；没有 key 时管线照常跑（`newsd process run <用户>`）。见 [docs/m2-4-model-layer.md](docs/m2-4-model-layer.md)。
+  - [ ] 按用户配额、调度器。
 - [ ] M3 前端：日报页动态渲染、设置页、管理后台、固定调色板。
 - [ ] M4 推送：Telegram / 邮件 / Webhook。
 - [ ] M5 迁移导入、中英文部署文档、LICENSE。
