@@ -270,3 +270,44 @@ class ItemScore(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str] = mapped_column(String(191), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+# ---------------------------------------------------------------- M2-3: per-user issues
+
+class Issue(Base):
+    """One user's edition (e.g. key "2026-10-20"). Rebuilding the same key replaces its items."""
+    __tablename__ = "issues"
+    __table_args__ = (UniqueConstraint("user_id", "key"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    key: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="ok")
+    ai: Mapped[str] = mapped_column(String(191), default="off")  # on | skipped: ... | fallback: ...
+    model: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    window_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    window_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stats: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # counts, caps used, drop reasons
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class IssueItem(Base):
+    """A selected pool item in an issue, in display order, with why it was picked."""
+    __tablename__ = "issue_items"
+    __table_args__ = (UniqueConstraint("issue_id", "item_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issue_id: Mapped[int] = mapped_column(ForeignKey("issues.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
+    rank: Mapped[int] = mapped_column(Integer)
+    module: Mapped[str] = mapped_column(String(32))
+    group_name: Mapped[str] = mapped_column(String(64), default="")
+    score: Mapped[float] = mapped_column(Float)
+    rule_score: Mapped[float] = mapped_column(Float)
+    llm_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    profile: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    section: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    matched: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"term","group","locations","kind","weight"}]
+    categories: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    also: Mapped[list | None] = mapped_column(JSON, nullable=True)  # merged duplicates
+    title_translated: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_translated: Mapped[str | None] = mapped_column(Text, nullable=True)

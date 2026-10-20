@@ -36,6 +36,16 @@ def main(argv=None) -> int:
     px.add_argument("--no-ai", action="store_true", help="skip every model call (rule ranking + cached translations)")
     px.add_argument("--no-rerank", action="store_true"); px.add_argument("--no-dedupe", action="store_true")
     px.add_argument("--no-translate", action="store_true")
+    iss = sub.add_parser("issue", help="per-user issues: rule scoring, dedup, quotas (+ model layer with a key)")
+    isub = iss.add_subparsers(dest="icmd", required=True)
+    ib = isub.add_parser("build", help="build and store one user's issue (or --all users)")
+    ib.add_argument("username", nargs="?")
+    ib.add_argument("--all", action="store_true")
+    ib.add_argument("--key", help="issue key (default: today's UTC date)")
+    ib.add_argument("--since-hours", type=float, default=26)
+    ib.add_argument("--no-ai", action="store_true", help="rules only, no model calls")
+    ish = isub.add_parser("show", help="print a stored issue as JSON")
+    ish.add_argument("username"); ish.add_argument("--key", default="latest")
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
@@ -92,6 +102,34 @@ def main(argv=None) -> int:
                                        max_items=args.max_items, rerank=not args.no_rerank, dedupe=not args.no_dedupe,
                                        translate=not args.no_translate)
             print(_json.dumps(report, ensure_ascii=False, default=str))
+        finally:
+            db.close()
+        return 0
+    if args.cmd == "issue":
+        import json as _json
+        from .issues import build_all, build_issue_sync, issue_view
+        from .models import Issue
+        db = SessionLocal()
+        try:
+            if args.icmd == "build" and args.all:
+                print(_json.dumps(build_all(db, args.key, client=None if args.no_ai else "auto", since_hours=args.since_hours),
+                                  ensure_ascii=False))
+                return 0
+            u = db.scalar(select(User).where(User.username == (args.username or "")))
+            if u is None:
+                print("no such user (or pass --all)", file=sys.stderr)
+                return 1
+            if args.icmd == "build":
+                rep = build_issue_sync(db, u.id, args.key, client=None if args.no_ai else "auto", since_hours=args.since_hours)
+                print(_json.dumps(rep, ensure_ascii=False, default=str))
+            else:
+                q = select(Issue).where(Issue.user_id == u.id)
+                q = q.order_by(Issue.key.desc()).limit(1) if args.key == "latest" else q.where(Issue.key == args.key)
+                issue = db.scalar(q)
+                if issue is None:
+                    print("no such issue", file=sys.stderr)
+                    return 1
+                print(_json.dumps(issue_view(db, issue), ensure_ascii=False))
         finally:
             db.close()
         return 0

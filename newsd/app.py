@@ -27,6 +27,8 @@ def create_app() -> FastAPI:
     app.include_router(prefs_router)
     from .llm.api import router as llm_router
     app.include_router(llm_router)
+    from .issues import router as issues_router
+    app.include_router(issues_router)
 
     @app.get("/healthz")
     def healthz():
