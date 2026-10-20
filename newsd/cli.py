@@ -14,6 +14,11 @@ def main(argv=None) -> int:
     s.add_argument("--host", default="0.0.0.0")
     s.add_argument("--port", type=int, default=8080)
     sub.add_parser("initdb", help="create tables")
+    d = sub.add_parser("db", help="schema migrations and catalog import")
+    dsub = d.add_subparsers(dest="dcmd", required=True)
+    dsub.add_parser("upgrade", help="alembic upgrade head")
+    im = dsub.add_parser("import-config", help="import config/collect-sources.json + tags.json into the catalog")
+    im.add_argument("--sources"); im.add_argument("--tags")
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
@@ -33,6 +38,18 @@ def main(argv=None) -> int:
         uvicorn.run("newsd.app:create_app", factory=True, host=args.host, port=args.port)
         return 0
     init_db()
+    if args.cmd == "db":
+        if args.dcmd == "upgrade":
+            print("ok")
+            return 0
+        import json as _json
+        from .catalog import import_config
+        db = SessionLocal()
+        try:
+            print(_json.dumps(import_config(db, args.sources, args.tags), ensure_ascii=False))
+        finally:
+            db.close()
+        return 0
     if args.cmd == "initdb":
         print("ok")
         return 0

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -79,3 +79,89 @@ class GlobalSetting(Base):
     __tablename__ = "global_settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[dict | list | str | int | None] = mapped_column(JSON, nullable=True)
+
+
+# ---------------------------------------------------------------- M2-1: sources, subscriptions, keywords, quotas
+
+class Source(Base):
+    """Global source catalog entry. key is the stable source id (rss:<id>, reddit:<sub>, rsshub:<id>, xq:<id>, xa:<handle>, plugin:<name>)."""
+    __tablename__ = "sources"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(191), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)  # rss | reddit | rsshub | x_query | x_account | plugin
+    name: Mapped[str] = mapped_column(String(191), default="")
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    default_tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    config: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # kind-specific parameters (query terms, route, mode...)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    content_extractor: Mapped[bool] = mapped_column(Boolean, default=False)  # fetch full text (trafilatura)
+    extractor_params: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # e.g. {"favor_precision": true}
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Subscription(Base):
+    """A user's pick from the catalog, with a few optional per-user overrides."""
+    __tablename__ = "subscriptions"
+    __table_args__ = (UniqueConstraint("user_id", "source_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # whitelisted keys only (see newsd.prefs)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Keyword(Base):
+    """Per-user keyword: interest (include), block (exclude) or boost (weighted)."""
+    __tablename__ = "keywords"
+    __table_args__ = (UniqueConstraint("user_id", "kind", "term"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # interest | block | boost
+    term: Mapped[str] = mapped_column(String(191))
+    weight: Mapped[float] = mapped_column(Float, default=1.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class Quota(Base):
+    """Per-user item caps. module="" & group="" is the overall cap; group="" is a module cap;
+    module+group is a category-group cap (cf. Horizon category_groups / max_items)."""
+    __tablename__ = "quotas"
+    __table_args__ = (UniqueConstraint("user_id", "module", "group_name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    module: Mapped[str] = mapped_column(String(64), default="")
+    group_name: Mapped[str] = mapped_column(String(64), default="")
+    max_items: Mapped[int] = mapped_column(Integer)
+    categories: Mapped[list | None] = mapped_column(JSON, nullable=True)  # tags/categories that belong to this group
+
+
+class TagTerm(Base):
+    """Global tag keyword map imported from config/tags.json."""
+    __tablename__ = "tag_terms"
+    __table_args__ = (UniqueConstraint("tag", "term"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tag: Mapped[str] = mapped_column(String(64), index=True)
+    term: Mapped[str] = mapped_column(String(191))
+    aliases: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    broad: Mapped[bool] = mapped_column(Boolean, default=False)
+    extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class SubscriptionTemplate(Base):
+    """Named starter set (sources + keywords) applied to new users, e.g. "default"."""
+    __tablename__ = "subscription_templates"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    keywords: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"kind","term","weight"}]
+    quotas: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"module","group_name","max_items","categories"}]
+
+
+class SubscriptionTemplateItem(Base):
+    __tablename__ = "subscription_template_items"
+    __table_args__ = (UniqueConstraint("template_id", "source_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("subscription_templates.id", ondelete="CASCADE"))
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))

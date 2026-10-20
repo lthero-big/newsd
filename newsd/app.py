@@ -23,6 +23,8 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "web" / "templ
 def create_app() -> FastAPI:
     init_db()
     app = FastAPI(title="newsd", version=__version__)
+    from .prefs import router as prefs_router
+    app.include_router(prefs_router)
 
     @app.get("/healthz")
     def healthz():

@@ -43,9 +43,32 @@ def SessionLocal():
     return _Session()
 
 
+def alembic_config():
+    from alembic.config import Config
+    cfg = Config()
+    cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
+    return cfg
+
+
+BASELINE_REVISION = "0001_m1_baseline"
+
+
+def upgrade_db(revision: str = "head") -> None:
+    """Bring the schema to `revision` with Alembic. Databases created by the M1 create_all()
+    (tables present, no alembic_version) are stamped at the M1 baseline first."""
+    from alembic import command
+    from sqlalchemy import inspect
+
+    from . import models  # noqa: F401
+    cfg = alembic_config()
+    tables = set(inspect(get_engine()).get_table_names())
+    if "users" in tables and "alembic_version" not in tables:
+        command.stamp(cfg, BASELINE_REVISION)
+    command.upgrade(cfg, revision)
+
+
 def init_db() -> None:
-    from . import models  # noqa: F401  (register tables)
-    Base.metadata.create_all(get_engine())
+    upgrade_db("head")
 
 
 def reset_engine() -> None:
