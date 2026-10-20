@@ -10,7 +10,6 @@ abort the daily run (same contract as Horizon's BaseScraper).
 from __future__ import annotations
 
 import json
-import subprocess
 import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -102,14 +101,9 @@ def rsshub(ctx: Context):
 
 
 def _gh_search(query: str, ctx: Context) -> dict:
-    """Prefer the gh CLI (authenticated, higher rate limit); fall back to the public API."""
+    """GitHub search via the public REST API (no local gh CLI). In the pool the shared client adds
+    NEWSD_GITHUB_TOKEN as a bearer token for api.github.com when it is set (higher rate limit)."""
     path = "search/repositories?" + urllib.parse.urlencode({"q": query, "sort": "stars", "order": "desc", "per_page": ctx.sources["github_search"].get("per_query", 15)})
-    try:
-        out = subprocess.run(["gh", "api", path], capture_output=True, text=True, timeout=ctx.timeout * 2)
-        if out.returncode == 0:
-            return json.loads(out.stdout)
-    except (OSError, subprocess.TimeoutExpired, ValueError):
-        pass
     return _json("https://api.github.com/" + path, ctx)
 
 
@@ -212,7 +206,7 @@ def ossinsight(ctx: Context):
 
 @register("x")
 def x_items(ctx: Context):
-    """Merge X posts gathered out-of-band by the agent's X connector.
+    """Merge X posts gathered out-of-band by x_standby.py (self-hosted RSSHub; there is no X connector path).
 
     Expected file: ``{"items": [{"url", "title"|"text", "author", "created_at",
     "likes", "reposts", "replies"}]}``.  Missing file means the step is skipped.

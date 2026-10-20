@@ -208,6 +208,43 @@ def reddit_media(card: dict) -> dict | None:
     return None
 
 
+def _og_candidate_ok(u: str) -> bool:
+    base_name = urllib.parse.urlparse(u).path.rsplit("/", 1)[-1].lower()
+    generic = any(g in u for g in GENERIC_THUMBS) or re.fullmatch(r"(og|og[-_]image|default|share|social|social[-_]card|card|banner|preview|cover)\.(png|jpe?g|webp)", base_name)
+    return u.startswith("https://") and not generic and not BADGE.search(urllib.parse.urlparse(u).path)
+
+
+def og_image_from_html(html: str, base_url: str = "") -> str | None:
+    """Regex og:image / twitter:image parser (the pre-trafilatura logic), used as fallback."""
+    for prop in ("og:image", "twitter:image", "og:image:url"):
+        m = re.search(r'<meta[^>]+(?:property|name)=["\']%s["\'][^>]*content=["\']([^"\']+)' % re.escape(prop), html, re.I) \
+            or re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']%s["\']' % re.escape(prop), html, re.I)
+        if m:
+            u = urllib.parse.urljoin(base_url, m.group(1).replace("&amp;", "&"))
+            if _og_candidate_ok(u):
+                return u
+    return None
+
+
+def og_candidates(html: str, base_url: str = "") -> list[str]:
+    """Lead-image candidates: trafilatura metadata (og:image/twitter:image/... in one pass) first, regex fallback."""
+    out = []
+    try:
+        from trafilatura import extract_metadata
+
+        doc = extract_metadata(html, default_url=base_url or None)
+        if doc is not None and doc.image:
+            u = urllib.parse.urljoin(base_url, doc.image.replace("&amp;", "&"))
+            if _og_candidate_ok(u):
+                out.append(u)
+    except Exception:  # noqa: BLE001
+        pass
+    fb = og_image_from_html(html, base_url)
+    if fb and fb not in out:
+        out.append(fb)
+    return out
+
+
 def og_media(card: dict) -> dict | None:
     if card["source"] not in ("rss", "hn"):
         return None
@@ -217,19 +254,11 @@ def og_media(card: dict) -> dict | None:
         return None
     if "html" not in ct:
         return None
-    t = b.decode("utf-8", "replace")
-    for prop in ("og:image", "twitter:image", "og:image:url"):
-        m = re.search(r'<meta[^>]+(?:property|name)=["\']%s["\'][^>]*content=["\']([^"\']+)' % re.escape(prop), t, re.I) \
-            or re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name)=["\']%s["\']' % re.escape(prop), t, re.I)
-        if m:
-            u = urllib.parse.urljoin(card["url"], m.group(1).replace("&amp;", "&"))
-            base_name = urllib.parse.urlparse(u).path.rsplit("/", 1)[-1].lower()
-            generic = any(g in u for g in GENERIC_THUMBS) or re.fullmatch(r"(og|og[-_]image|default|share|social|social[-_]card|card|banner|preview|cover)\.(png|jpe?g|webp)", base_name)
-            if u.startswith("https://") and not generic and not BADGE.search(urllib.parse.urlparse(u).path):
-                p = probe(u)
-                if p:
-                    p["og"] = True
-                    return p
+    for u in og_candidates(b.decode("utf-8", "replace"), card["url"]):
+        p = probe(u)
+        if p:
+            p["og"] = True
+            return p
     return None
 
 
@@ -266,7 +295,7 @@ def mark_logo(card: dict) -> None:
 
 def find(card: dict) -> dict | None:
     if card["source"] == "x":
-        return None  # X media comes from the connector
+        return None  # X media comes with the RSSHub item
     return readme_media(card) or reddit_media(card) or og_media(card)
 
 

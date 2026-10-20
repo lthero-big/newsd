@@ -3,7 +3,7 @@
     python3 scripts/collect/x_standby.py --out var/x-items/<date>.json [--hours 26] [--score]
 
 1. The enabled /sources accounts (same list as x_rsshub.py), one request each, 2 s apart, with showLikesCountInTitle=1
-   so the title carries "[<likes>] …"; the per-account like floor is the same as the connector's (min_likes, 特别关注 low_min_likes).
+   so the title carries "[<likes>] …"; the per-account like floor comes from config (min_likes, 特别关注 low_min_likes).
 2. KEYWORD_QUERIES below (X web search syntax with min_faves; RSSHub returns only the newest 20 per query), 5 s apart.
 3. Rule filter (AI relevance, hashtag/fan spam, too short), dedupe by status id.
 4. --score: one optional relevance pass with the owner's key chain (scripts/llm.py Chain, gpt-6.1-sol first) that drops
@@ -136,7 +136,7 @@ def collect(base: str, key: str, hours: float, pace_acct: float = 2.0, pace_kw: 
                 continue
             if dt < since or (r["likes"] is not None and r["likes"] < q["min_likes"]):
                 continue
-            r.pop("transport", None)  # keyword hits rank like connector posts (not the 2-per-module RSSHub account cap)
+            r.pop("transport", None)  # keyword hits rank like regular X posts (not the 2-per-module RSSHub account cap)
             r["via"] = "kw:" + q["id"]
             if q.get("prompt") or x_rsshub_prompt(r["text"]):
                 r["prompt_q"] = True

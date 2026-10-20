@@ -47,24 +47,6 @@ class T(unittest.TestCase):
         self.assertIn("circuit_open", r)
         self.assertTrue(r["failed"][-1]["error"].startswith("skipped"))
 
-    def test_skip(self):
-        src = {"x": {"suffix": "", "queries": [], "accounts": []}}
-        cfg = {"x_accounts": [{"handle": "a", "enabled": True, "group": "g", "keywords": ["k"]}, {"handle": "b", "enabled": True, "group": "g"}]}
-        q = sc.x_queries(src, cfg, {"a"})
-        self.assertIn("from:b", q[0]["query"]); self.assertNotIn("from:a", q[0]["query"])
-        self.assertTrue(any(x["id"].startswith("kw-a") for x in q))
-        self.assertEqual(sc.x_queries(src, cfg, {"a", "b"})[0]["id"], "kw-a-1")
-
-class Empty(unittest.TestCase):
-    def test_empty_glob_merges_extra(self):
-        import json, tempfile, x_from_connector
-        d = Path(tempfile.mkdtemp())
-        (d / "xr.json").write_text(json.dumps({"items": [{"url": "https://x.com/a/status/1", "text": "t"}]}))
-        for files in ([], [str(d / "raw/*.json")]):
-            x_from_connector.main(files + ["--out", str(d / "o.json"), "--extra", str(d / "xr.json")])
-            self.assertEqual(len(json.loads((d / "o.json").read_text())["items"]), 1)
-
-
 
 class Apply(unittest.TestCase):
     def test_card_added_sources(self):

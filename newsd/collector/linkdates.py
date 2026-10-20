@@ -67,12 +67,27 @@ META = [r'<meta[^>]+(?:property|name)=["\'](?:article:published_time|og:publishe
         r'<time[^>]+datetime=["\']([^"\']+)']
 
 
-def from_html(html: str) -> str | None:
+def from_html_regex(html: str) -> str | None:
+    """Pre-trafilatura regex parser; now the fallback when trafilatura finds no date."""
     for pat in META:
-        m = re.search(pat, html, re.I)
+        m = re.search(pat, html or "", re.I)
         if m and _iso(m.group(1)):
             return _iso(m.group(1))
     return None
+
+
+def from_html(html: str) -> str | None:
+    """Publish date of an article page: trafilatura metadata first (meta tags, JSON-LD, <time>, ...),
+    then the regex patterns above."""
+    try:
+        from trafilatura import extract_metadata
+
+        doc = extract_metadata(html, date_config={"original_date": True, "extensive_search": False,
+                                                  "outputformat": "%Y-%m-%dT%H:%M:%S%z"})
+        d = _iso(doc.date) if doc is not None and doc.date else None
+    except Exception:  # noqa: BLE001 - fall back to the regex parser
+        d = None
+    return d or from_html_regex(html)
 
 
 def _youtube(vid: str) -> str | None:

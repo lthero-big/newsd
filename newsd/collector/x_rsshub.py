@@ -5,8 +5,8 @@
 Enabled accounts from /sources (var/state/sources.json via sync-state) in fixed order, one request each with
 polite pacing (20 s timeout, 2 retries with backoff on TLS/connection errors, circuit breaker after 5 accounts fail in a
 row so a broken proxy costs ~1 min, not 9); keeps the newest `--per` original posts (no replies / retweets) inside the window (特别关注 gets
-per+1). Output rows use the x-items format (merged by x_from_connector.py --extra) plus {"ok": [...], "failed": [...]}:
-accounts in "ok" are dropped from the connector's from: queries (x_queries.py --skip-ok), failed ones fall back to it.
+per+1). Output rows use the x-items format (read by generate.py --x-items) plus {"ok": [...], "failed": [...]}.
+RSSHub is the only X path (the X-connector fallback was removed in M2-2): failed accounts are skipped this run.
 RSSHub's feed has no like counts, so like thresholds cannot apply on this path (likes=null); volume is bounded by
 --per and the X cap per module (2) in generate.py. The access key never leaves this process (errors are scrubbed).
 """
@@ -69,7 +69,7 @@ def fetch(base: str, key: str, handle: str, timeout: int) -> list[dict]:
 
 TIMEOUT = 20          # per request; a healthy RSSHub answers in 1–3 s
 RETRY_BACKOFF = (2.0, 5.0)  # sleeps before attempts 2 and 3, only for transient errors (TLS EOF, reset, timeout, 5xx/429)
-BREAKER = 5           # this many accounts failing in a row → stop, the rest go to the X connector (x_queries.py)
+BREAKER = 5           # this many accounts failing in a row → stop; the rest are skipped this run
 
 
 def transient(exc: Exception) -> bool:
@@ -108,7 +108,7 @@ def run(accts, base, key, hours=26, per=2, pace=2.0, timeout=TIMEOUT, low_groups
             streak += 1
             if breaker and streak >= breaker:
                 tripped = scrub(exc)[:80]
-                print(f"x-rsshub: circuit open after {streak} consecutive failures, {len(accts) - n - 1} accounts left to the connector: {tripped}", file=sys.stderr)
+                print(f"x-rsshub: circuit open after {streak} consecutive failures, {len(accts) - n - 1} accounts skipped: {tripped}", file=sys.stderr)
             continue
         streak = 0
         ok.append(h)

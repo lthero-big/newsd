@@ -111,7 +111,7 @@ def iri_to_uri(url: str) -> str:
             host_ascii = host.encode("idna").decode("ascii")
         except UnicodeError:
             host_ascii = host
-        netloc = host_ascii
+        netloc = f"[{host_ascii}]" if ":" in host_ascii else host_ascii  # keep IPv6 literals bracketed
         if parts.port:
             netloc = f"{netloc}:{parts.port}"
         if parts.username:
@@ -343,14 +343,17 @@ def html_to_text(html: str) -> str:
     return text
 
 
-def extract_text(raw: str, limit: int) -> tuple[str, str, bool]:
+def extract_text(raw: str, limit: int, favor_precision: bool = False, favor_recall: bool = False) -> tuple[str, str, bool]:
     extractor = "html_text"
     text = ""
     if raw and "<" in raw and ">" in raw:
         try:
-            import trafilatura  # type: ignore
+            import trafilatura  # base dependency since M2-2
 
-            extracted = trafilatura.extract(raw) or ""
+            extracted = trafilatura.extract(
+                raw, favor_precision=favor_precision, favor_recall=favor_recall,
+                include_comments=False, include_tables=True,
+            ) or ""
             if len(extracted) >= 80:
                 text = extracted
                 extractor = "trafilatura"

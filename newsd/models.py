@@ -165,3 +165,75 @@ class SubscriptionTemplateItem(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     template_id: Mapped[int] = mapped_column(ForeignKey("subscription_templates.id", ondelete="CASCADE"))
     source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+
+
+# ---------------------------------------------------------------- M2-2: shared collection pool
+
+class SourceFetch(Base):
+    """One row per (source, cycle). The unique key is the "fetch each source once per cycle" guarantee:
+    whoever inserts the row first does the request; everyone else reuses the pool."""
+    __tablename__ = "source_fetches"
+    __table_args__ = (UniqueConstraint("source_id", "cycle"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
+    cycle: Mapped[str] = mapped_column(String(64), index=True)
+    status: Mapped[str] = mapped_column(String(64), default="running")  # running | ok | failed:<reason> | skipped:<reason>
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    entries: Mapped[int] = mapped_column(Integer, default=0)
+    new_items: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class PoolItem(Base):
+    """Shared entry pool. Deduped by normalized URL (unique) and, when there is enough text, by content hash."""
+    __tablename__ = "pool_items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    url_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # sha256(canonical_url)
+    canonical_url: Mapped[str] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    summary: Mapped[str] = mapped_column(Text, default="")  # source-provided listing text / feed summary
+    author: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    image: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str | None] = mapped_column(String(32), nullable=True)  # post | release | repo | model
+    extra: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # points, comments, enclosure, ...
+    first_source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"), nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    extraction_id: Mapped[int | None] = mapped_column(ForeignKey("extractions.id", ondelete="SET NULL"), nullable=True)
+
+
+class PoolItemSource(Base):
+    """Which sources carried an item, and when each one first fetched it."""
+    __tablename__ = "pool_item_sources"
+    __table_args__ = (UniqueConstraint("item_id", "source_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
+    url: Mapped[str] = mapped_column(Text)  # URL as this source published it
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    cycle: Mapped[str] = mapped_column(String(64))
+
+
+class Extraction(Base):
+    """Full-text + metadata extraction cache, shared by all users. Keyed by canonical URL; html_hash lets a
+    page served under another URL reuse the result. text is internal (scoring/summary/translation/dedupe/search)."""
+    __tablename__ = "extractions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    url_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # sha256(canonical_url)
+    canonical_url: Mapped[str] = mapped_column(Text)
+    html_hash: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    params: Mapped[str] = mapped_column(String(32), default="")  # "", "precision" or "recall"
+    status: Mapped[str] = mapped_column(String(64))  # ok | failed:<reason>
+    extractor: Mapped[str] = mapped_column(String(32), default="none")
+    text: Mapped[str] = mapped_column(Text, default="")
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    author: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    published_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    sitename: Mapped[str | None] = mapped_column(String(191), nullable=True)
+    image: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta_from: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

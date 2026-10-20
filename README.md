@@ -6,7 +6,10 @@
 
 - [x] M0 新仓库：全新 git 历史，只带代码，不带 data/、editions/、私有端点和私有 key。
 - [x] M1（骨架）：账号（admin/user）、注册（邀请码或公开注册，可随时切换）、session 登录、错误口令 3 次锁 IP 15 分钟、每用户 API key / MCP token（只存哈希）、用户密钥加密存储、管理员命令、Dockerfile 和 docker compose。
-- [ ] M2 管线迁移：共享采集池、按用户打分/配额/翻译、调度器。采集代码已放在 `newsd/collector/`（从 news-daily 原样搬入，待接线）。
+- [ ] M2 管线迁移：
+  - [x] M2-1 源目录、订阅、关键词、配额进数据库。
+  - [x] M2-2 共享采集池（每源每周期只抓一次，`newsd pool run`）+ trafilatura 全文与元数据抽取（按源开关、共享缓存、失败退回源摘要），X 只走自建 RSSHub，不再依赖本机 gh CLI。见 [docs/m2-2-shared-pool.md](docs/m2-2-shared-pool.md)。
+  - [ ] 按用户打分/配额/翻译、调度器。
 - [ ] M3 前端：日报页动态渲染、设置页、管理后台、固定调色板。
 - [ ] M4 推送：Telegram / 邮件 / Webhook。
 - [ ] M5 迁移导入、中英文部署文档、LICENSE。

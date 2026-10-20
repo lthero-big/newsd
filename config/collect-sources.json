@@ -131,7 +131,7 @@
     ]
   },
   "x": {
-    "_note": "routine 用 scripts/collect/x_queries.py 生成 search_posts_all 查询；主人可在 /sources 增删关键词和账号。",
+    "_note": "X 只走自建 RSSHub（/twitter/user、/twitter/keyword），不再走 X 连接器；需要配置 RSSHUB_BASE 和 RSSHUB_ACCESS_KEY。",
     "suffix": "has:images -is:retweet -is:reply lang:en",
     "queries": [
       {
