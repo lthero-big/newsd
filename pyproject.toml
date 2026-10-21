@@ -33,7 +33,7 @@ build-backend = "setuptools.build_meta"
 include = ["newsd*"]
 
 [tool.setuptools.package-data]
-newsd = ["web/templates/*.html", "migrations/script.py.mako", "llm/profiles/*.md"]
+newsd = ["web/templates/*.html", "web/static/*", "migrations/script.py.mako", "llm/profiles/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

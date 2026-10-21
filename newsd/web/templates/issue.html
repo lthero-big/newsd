@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% from "_item.html" import card %}{% block title %}{{ key or "今日" }} · newsd{% endblock %}
+{% block body %}<main>
+<div class="pager"><span>{% if prev_key %}<a href="/issue/{{ prev_key }}">← {{ prev_key }}</a>{% endif %}</span>
+<span>{% if next_key %}<a href="/issue/{{ next_key }}">{{ next_key }} →</a>{% endif %}</span></div>
+{% if issue %}
+<h1>{{ issue.key }} 日报 <small class="meta">{{ issue["items"]|length }} 条 · {{ "AI：" ~ issue.model if issue.model else "规则排序" }}{% if trashed %} · <a href="/trash">{{ trashed }} 条在回收站</a>{% endif %}</small></h1>
+{% for mod, label, rows in groups %}<h3>{{ label }}（{{ rows|length }}）</h3>{% for it in rows %}{{ card(it) }}{% endfor %}{% endfor %}
+{% if not groups %}<p class="empty">这一期没有符合你关键词和配额的内容。去<a href="/settings">设置</a>调整订阅或关键词。</p>{% endif %}
+{% else %}
+<h1>还没有日报</h1>
+<p class="empty">{% if key %}没有 {{ key }} 这一期。{% else %}你还没有生成过日报。{% endif %}</p>
+{% endif %}
+<p><button class="primary" id="build">{{ "重新生成今日日报" if issue else "立即生成日报" }}</button> <span class="status" id="build-status" role="status"></span></p>
+</main>{% endblock %}
+{% block script %}<script>
+$("#build").addEventListener("click", async () => {
+  $("#build").disabled = true; $("#build-status").textContent = "生成中…";
+  const [ok, j] = await call("POST", "/api/me/issues/build", {});
+  if (ok) location.href = "/"; else { $("#build").disabled = false; $("#build-status").textContent = "生成失败：" + (j.error || ""); }
+});
+</script>{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}日历 · newsd{% endblock %}
+{% block body %}<main><h1>日历</h1>
+<div class="pager"><a href="/calendar?month={{ prev_month }}">← {{ prev_month }}</a><b>{{ month }}</b><a href="/calendar?month={{ next_month }}">{{ next_month }} →</a></div>
+<div class="cal">{% for h in ["一", "二", "三", "四", "五", "六", "日"] %}<div class="h">{{ h }}</div>{% endfor %}
+{% for day in cells %}{% if day is none %}<div></div>{% elif day.key in issues %}<a class="d" href="/issue/{{ day.key }}">{{ day.n }}<b>{{ issues[day.key] }} 条</b></a>{% else %}<div class="d">{{ day.n }}</div>{% endif %}{% endfor %}</div>
+{% if others %}<h3>其他期次</h3><p>{% for k, n in others %}<a href="/issue/{{ k }}">{{ k }}（{{ n }}）</a> {% endfor %}</p>{% endif %}
+</main>{% endblock %}

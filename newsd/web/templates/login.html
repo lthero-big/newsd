@@ -1,10 +1,10 @@
 {% extends "base.html" %}{% block title %}登录 · newsd{% endblock %}
-{% block body %}<main><h1>newsd</h1>
+{% block body %}<main class="narrow"><h1>newsd</h1>
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/login">
+<form method="post" action="/login" class="stack">
 <label>用户名 <input name="username" autocomplete="username" required></label>
 <label>密码 <input name="password" type="password" autocomplete="current-password" required></label>
-<button type="submit">登录</button></form>
+<button type="submit" class="primary">登录</button></form>
 {% if registration == "open" %}<p>没有账号？<a href="/register">直接注册</a>（有邀请码也可以填）。</p>
 {% elif registration == "invite" %}<p>没有账号？向管理员索取邀请码后<a href="/register">注册</a>。</p>{% endif %}
 </main>{% endblock %}

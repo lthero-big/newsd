@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}欢迎 · newsd{% endblock %}
+{% block body %}<main><h1>你好，{{ user.username }}</h1>
+<p>选几个你感兴趣的方向，我们一键订阅对应的推荐信息源，之后都可以在设置里改。也可以跳过，自己慢慢挑。</p>
+<form id="welcome">
+{% for g in groups %}<section class="panel"><label><input type="checkbox" name="interest" value="{{ g.name }}"{% if g.name == "ai-news" %} checked{% endif %}> <b>{{ g.title }}</b></label>
+<div class="meta">栏目：{{ g.sections|join("、") }} · 将订阅 {{ g.sources|length }} 个源</div></section>{% endfor %}
+<button class="primary" type="submit">订阅所选</button> <button type="button" id="skip">先跳过</button> <span class="status" id="st" role="status"></span>
+</form></main>{% endblock %}
+{% block script %}<script>
+async function go(list) {
+  const [ok, j] = await call("POST", "/api/onboarding", {interests: list});
+  if (ok) location.href = "/"; else $("#st").textContent = "失败：" + (j.error || "");
+}
+$("#welcome").addEventListener("submit", (e) => { e.preventDefault(); go([...document.querySelectorAll("[name=interest]:checked")].map((i) => i.value)); });
+$("#skip").addEventListener("click", () => go([]));
+</script>{% endblock %}

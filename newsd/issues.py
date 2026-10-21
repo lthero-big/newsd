@@ -22,6 +22,7 @@ from .llm.client import LLMClient
 from .llm.process import _dedupe as ai_dedupe, _rerank as ai_rerank, _score_profile
 from .llm.profiles import all_profiles, get_picks
 from .llm.translate import translate_texts
+from .marks import user_marks
 from .models import Issue, IssueItem, ItemScore, PoolItem, User
 from .pool.collector import item_text, user_items
 from .scoring import Candidate, cut, dedupe, item_sources, load_caps, load_rules, score_candidates
@@ -195,12 +196,14 @@ def issue_view(db, issue: Issue) -> dict:
     rows = db.execute(select(IssueItem, PoolItem).join(PoolItem, PoolItem.id == IssueItem.item_id)
                       .where(IssueItem.issue_id == issue.id).order_by(IssueItem.rank)).all()
     srcs = item_sources(db, [p.id for _, p in rows])
+    marks = user_marks(db, issue.user_id)
     items = [{"rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
               "summary": p.summary, "summary_translated": ii.summary_translated, "image": p.image, "author": p.author,
               "published_at": p.published_at.isoformat() if p.published_at else None, "module": ii.module,
               "group": ii.group_name, "score": ii.score, "rule_score": ii.rule_score, "llm_score": ii.llm_score,
               "profile": ii.profile, "section": ii.section, "matched": [m["term"] for m in ii.matched or []],
-              "categories": ii.categories or [], "also": ii.also or [], "sources": [s.name for s in srcs.get(p.id, [])]}
+              "categories": ii.categories or [], "also": ii.also or [], "sources": [s.name for s in srcs.get(p.id, [])],
+              "state": marks.get(p.id)}
              for ii, p in rows]
     return {"key": issue.key, "ai": issue.ai, "model": issue.model, "created_at": issue.created_at.isoformat(),
             "updated_at": issue.updated_at.isoformat(), "stats": {k: v for k, v in (issue.stats or {}).items() if k != "dropped_items"},

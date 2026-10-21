@@ -1,4 +1,30 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}newsd{% endblock %}</title></head>
-<body>{% block body %}{% endblock %}</body></html>
+<html lang="zh-CN" data-theme="{{ palette or 'indigo' }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}newsd{% endblock %}</title>
+<link rel="stylesheet" href="/static/app.css"></head>
+<body data-page="{{ page or '' }}">
+{% if user %}<nav class="top"><a class="brand" href="/">newsd</a>
+{% for href, label, key in [("/", "今日", "home"), ("/calendar", "日历", "calendar"), ("/favorites", "收藏", "favorites"), ("/trash", "回收站", "trash"), ("/settings", "设置", "settings")] %}<a href="{{ href }}"{% if nav == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
+{% if user.role == "admin" %}<a href="/admin"{% if nav == "admin" %} class="on"{% endif %}>管理</a>{% endif %}
+<form method="post" action="/logout"><span class="meta">{{ user.username }}</span> <button>退出</button></form></nav>{% endif %}
+{% block body %}{% endblock %}
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+async function call(method, url, body) {
+  const r = await fetch(url, {method, headers: {"content-type": "application/json"}, body: body === undefined ? undefined : JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return [r.ok, j];
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mark]"); if (!b) return;
+  const card = b.closest("[data-item]"), id = card.dataset.item;
+  const want = b.dataset.mark === "clear" ? null : b.dataset.mark;
+  const [ok] = await call("PUT", `/api/me/items/${id}/mark`, {state: want});
+  if (!ok) return;
+  if (want === "trash" || (want === null && document.body.dataset.page !== "issue")) card.remove();
+  else if (want === "favorite") { b.classList.add("on"); b.dataset.mark = "clear"; b.textContent = "★ 已收藏"; }
+  else { b.classList.remove("on"); b.dataset.mark = "favorite"; b.textContent = "☆ 收藏"; }
+});
+</script>
+{% block script %}{% endblock %}
+</body></html>

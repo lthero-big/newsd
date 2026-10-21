@@ -311,3 +311,17 @@ class IssueItem(Base):
     also: Mapped[list | None] = mapped_column(JSON, nullable=True)  # merged duplicates
     title_translated: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary_translated: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+# ---------------------------------------------------------------- M3: favorites / trash
+
+class ItemMark(Base):
+    """A user's favorite or trash mark on a pool item. One state per (user, item); trash hides the item from the
+    user's issue pages, favorite keeps it on the favorites page. Marks never touch the shared pool."""
+    __tablename__ = "item_marks"
+    __table_args__ = (UniqueConstraint("user_id", "item_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
+    state: Mapped[str] = mapped_column(String(16))  # favorite | trash
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

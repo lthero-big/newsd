@@ -1,11 +1,11 @@
 {% extends "base.html" %}{% block title %}注册 · newsd{% endblock %}
-{% block body %}<main><h1>注册</h1>
+{% block body %}<main class="narrow"><h1>注册</h1>
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
 {% if registration == "closed" %}<p>目前不开放注册，请联系管理员。</p>
-{% else %}<form method="post" action="/register">
+{% else %}<form method="post" action="/register" class="stack">
 <label>用户名 <input name="username" autocomplete="username" minlength="2" maxlength="64" required></label>
 <label>密码 <input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
 <label>邀请码{% if registration == "open" %}（可选）{% endif %} <input name="invite"{% if registration == "invite" %} required{% endif %}></label>
-<button type="submit">注册</button></form>{% endif %}
+<button type="submit" class="primary">注册</button></form>{% endif %}
 <p><a href="/login">已有账号，去登录</a></p>
 </main>{% endblock %}

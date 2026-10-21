@@ -1,7 +1,41 @@
 {% extends "base.html" %}{% block title %}设置 · newsd{% endblock %}
 {% block body %}<main><h1>设置</h1>
-<p><a href="/">返回</a></p>
-<section><h2>模型</h2>
+<p class="meta">以下所有设置只属于你自己（{{ user.username }}），不会影响其他用户。</p>
+
+<section class="panel"><h2>主题色</h2>
+<div class="swatches" id="palettes">{% for k, n in palettes.items() %}<button data-palette="{{ k }}"{% if k == palette %} class="on"{% endif %}>{{ n }}</button>{% endfor %}</div>
+<p class="status" id="theme-status" role="status"></p></section>
+
+<section class="panel"><h2>订阅源</h2>
+<p>勾选要订阅的信息源。<button type="button" id="apply-default">套用推荐订阅</button> <a href="/welcome">按兴趣一键订阅</a></p>
+<p class="status" id="sub-status" role="status"></p>
+{% for kind, rows in sources %}<h3>{{ kind }}</h3><div>{% for s in rows %}<label><input type="checkbox" data-source="{{ s.key }}"{% if s.subscribed %} checked{% endif %}> {{ s.name }}</label>{% endfor %}</div>{% endfor %}
+</section>
+
+<section class="panel"><h2>关键词</h2>
+<p>关注词：只保留命中的内容；加权词：命中的排前面；屏蔽词：命中的直接剔除。</p>
+{% for kind, label in [("interest", "关注"), ("boost", "加权"), ("block", "屏蔽")] %}
+<h3>{{ label }}</h3><div class="chips" data-kw-list="{{ kind }}">{% for k in keywords[kind] %}<span class="tag" data-kw="{{ k.id }}">{{ k.term }}{% if kind == "boost" %} ×{{ k.weight }}{% endif %}<button type="button" aria-label="删除" data-del-kw="{{ k.id }}">×</button></span>{% endfor %}</div>
+<form class="kw-add" data-kind="{{ kind }}"><input name="term" placeholder="添加{{ label }}词" maxlength="191" required>{% if kind == "boost" %} <input name="weight" type="number" step="0.5" min="0.5" max="5" value="2" title="权重">{% endif %} <button>添加</button></form>
+{% endfor %}<p class="status" id="kw-status" role="status"></p></section>
+
+<section class="panel"><h2>配额</h2>
+<p>每期条数上限。模块留空为总上限（只能一条）；分组需要先填模块（model / opensource / community / news）；类别用逗号分隔，条目的类别和分组类别有交集就算进该组。没有任何配额时用默认值（总 30，各模块 6–8）。</p>
+<form id="quotas"><div class="scroll"><table><thead><tr><th>模块</th><th>分组</th><th>上限</th><th>类别</th><th></th></tr></thead><tbody id="quota-rows">
+{% for q in quotas %}<tr><td><input name="module" value="{{ q.module }}" size="10"></td><td><input name="group_name" value="{{ q.group_name }}" size="12"></td><td><input name="max_items" type="number" min="0" max="1000" value="{{ q.max_items }}" style="width:5em"></td><td><input name="categories" value="{{ q.categories|join(',') }}" size="18"></td><td><button type="button" class="rm-row">删除</button></td></tr>{% endfor %}
+</tbody></table></div><button type="button" id="add-quota">加一行</button> <button class="primary">保存配额</button> <span class="status" id="quota-status" role="status"></span></form></section>
+
+<section class="panel"><h2>推送偏好</h2>
+<p>设定每天推送的时间和渠道。推送发送由后续版本接入，这里先保存你的偏好。</p>
+<form id="push" class="stack">
+<label><input type="checkbox" name="enabled"{% if push.enabled %} checked{% endif %}> 开启每日推送</label>
+<label>时间 <input name="time" type="time" value="{{ push.time }}" style="width:auto"></label>
+<label>时区 <input name="timezone" value="{{ push.timezone }}"></label>
+{% for c, label, ph in [("email", "邮件", "you@example.com"), ("telegram", "Telegram", "聊天 ID 或 @频道"), ("webhook", "Webhook", "https://…")] %}
+<label><input type="checkbox" name="{{ c }}-enabled"{% if push.channels[c].enabled %} checked{% endif %}> {{ label }} <input name="{{ c }}-target" value="{{ push.channels[c].target }}" placeholder="{{ ph }}"></label>{% endfor %}
+<div><button class="primary">保存推送偏好</button> <span class="status" id="push-status" role="status"></span></div></form></section>
+
+<section class="panel"><h2>模型</h2>
 <p>只需选服务商、填模型名和 API key。key 用服务器主密钥加密保存，保存后不会再显示。不填 key 时日报照常生成，只是不做 AI 重排、语义去重和翻译。</p>
 <form id="llm">
 <label>服务商 <select name="provider">{% for p in providers %}<option value="{{ p.provider }}"{% if p.provider == llm.provider %} selected{% endif %}{% if not p.available %} disabled{% endif %}>{{ p.label }}</option>{% endfor %}</select></label>
@@ -13,7 +47,7 @@
 </form>
 <p id="llm-status" role="status"></p>
 </section>
-<section><h2>内容类别</h2>
+<section class="panel"><h2>内容类别</h2>
 <p>勾选要看的类别。分数（0–10）达到阈值的条目才会进日报；阈值可以调。</p>
 <form id="profiles">
 {% for p in profiles %}<p><label><input type="checkbox" name="pick" value="{{ p.name }}"{% if p.name in picked %} checked{% endif %}> {{ p.title }}</label>
@@ -23,16 +57,11 @@
 </form>
 <p id="prof-status" role="status"></p>
 </section>
-<script>
-const $ = (s) => document.querySelector(s);
+</main>{% endblock %}
+{% block script %}<script>
 function llmBody(withKey) {
   const f = new FormData($("#llm")); const b = {provider: f.get("provider"), model: f.get("model").trim(), translate_to: f.get("translate_to")};
   const k = f.get("api_key").trim(); if (withKey && k) b.api_key = k; return b;
-}
-async function call(method, url, body) {
-  const r = await fetch(url, {method, headers: {"content-type": "application/json"}, body: body === undefined ? undefined : JSON.stringify(body)});
-  let j = {}; try { j = await r.json(); } catch (e) {}
-  return [r.ok, j];
 }
 $("#llm").addEventListener("submit", async (e) => {
   e.preventDefault(); const [ok, j] = await call("PUT", "/api/me/llm", llmBody(true));
@@ -53,5 +82,50 @@ $("#profiles").addEventListener("submit", async (e) => {
   const [ok, j] = await call("PUT", "/api/me/profiles", picks);
   $("#prof-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
 });
-</script>
-</main>{% endblock %}
+
+document.querySelectorAll("#palettes button").forEach((b) => b.addEventListener("click", async () => {
+  const [ok, j] = await call("PUT", "/api/me/theme", {palette: b.dataset.palette});
+  if (ok) { document.documentElement.dataset.theme = j.palette; document.querySelectorAll("#palettes button").forEach((x) => x.classList.toggle("on", x === b)); }
+  $("#theme-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+}));
+document.querySelectorAll("[data-source]").forEach((cb) => cb.addEventListener("change", async () => {
+  const key = cb.dataset.source;
+  const [ok, j] = cb.checked ? await call("PUT", "/api/me/subscriptions", {source: key, enabled: true}) : await call("DELETE", "/api/me/subscriptions/" + key);
+  $("#sub-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+  if (!ok) cb.checked = !cb.checked;
+}));
+$("#apply-default").addEventListener("click", async () => {
+  const [ok, j] = await call("POST", "/api/me/subscriptions/apply-template");
+  if (ok) location.reload(); else $("#sub-status").textContent = "失败：" + (j.error || "");
+});
+document.querySelectorAll(".kw-add").forEach((f) => f.addEventListener("submit", async (e) => {
+  e.preventDefault(); const b = {kind: f.dataset.kind, term: f.term.value.trim()}; if (f.weight) b.weight = parseFloat(f.weight.value);
+  const [ok, j] = await call("POST", "/api/me/keywords", b);
+  if (ok) location.reload(); else $("#kw-status").textContent = "添加失败：" + (j.error || "");
+}));
+document.querySelectorAll("[data-del-kw]").forEach((b) => b.addEventListener("click", async () => {
+  const [ok] = await call("DELETE", "/api/me/keywords/" + b.dataset.delKw); if (ok) b.closest("[data-kw]").remove();
+}));
+$("#add-quota").addEventListener("click", () => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td><input name="module" size="10"></td><td><input name="group_name" size="12"></td><td><input name="max_items" type="number" min="0" max="1000" value="10" style="width:5em"></td><td><input name="categories" size="18"></td><td><button type="button" class="rm-row">删除</button></td>';
+  $("#quota-rows").appendChild(tr);
+});
+$("#quota-rows").addEventListener("click", (e) => { if (e.target.classList.contains("rm-row")) e.target.closest("tr").remove(); });
+$("#quotas").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = [...document.querySelectorAll("#quota-rows tr")].map((tr) => {
+    const v = (n) => tr.querySelector(`[name=${n}]`).value.trim();
+    const cats = v("categories").split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    return {module: v("module"), group_name: v("group_name"), max_items: parseInt(v("max_items") || "0", 10), categories: cats.length ? cats : null};
+  });
+  const [ok, j] = await call("PUT", "/api/me/quotas", body);
+  $("#quota-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+});
+$("#push").addEventListener("submit", async (e) => {
+  e.preventDefault(); const f = $("#push");
+  const channels = {}; for (const c of ["email", "telegram", "webhook"]) channels[c] = {enabled: f[c + "-enabled"].checked, target: f[c + "-target"].value.trim()};
+  const [ok, j] = await call("PUT", "/api/me/push", {enabled: f.enabled.checked, time: f.time.value, timezone: f.timezone.value.trim(), channels});
+  $("#push-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+});
+</script>{% endblock %}

@@ -12,7 +12,7 @@
   - [x] M2-4 模型层：多服务商 LLM 客户端（OpenAI 兼容 / Anthropic / Gemini / DeepSeek / 通义 / 豆包 / Ollama，限速、并发上限、退避重试、非法 JSON 修复一次）、用户 key 用服务器主密钥加密存储、设置页“测试连接”、全站共享翻译缓存、按类别的处理配置（Markdown 提示词 + 阈值）、可选 AI 重排和语义去重；没有 key 时管线照常跑（`newsd process run <用户>`）。见 [docs/m2-4-model-layer.md](docs/m2-4-model-layer.md)。
   - [x] M2-3 按用户打分、过滤与分组配额：关键词（关注/加权/屏蔽，有全文时匹配全文）规则打分，先按 URL 和标题相似度去重，再按话题/分组/模块/总量上限裁剪，每期结果存库（`issues`/`issue_items`），有 key 时叠加 M2-4 模型打分。`newsd issue build <用户>|--all`、`GET /api/me/issues/latest`。见 [docs/m2-3-scoring.md](docs/m2-3-scoring.md)。
   - [ ] 调度器。
-- [ ] M3 前端：日报页动态渲染、设置页、管理后台、固定调色板。
+- [x] M3 前端：按用户动态渲染的日报 / 日历 / 收藏 / 回收站、设置页（订阅源、关键词、配额、推送偏好、模型与 key、类别阈值）、管理后台（用户、邀请码、注册方式、带质量统计的源目录、运行记录）、固定调色板换色（不再每周自动轮换）、注册后一键订阅预设源。见 [docs/m3-222-pages.md](docs/m3-222-pages.md)。
 - [ ] M4 推送：Telegram / 邮件 / Webhook。
 - [ ] M5 迁移导入、中英文部署文档、LICENSE。
 
