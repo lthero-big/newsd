@@ -113,6 +113,6 @@ news.example.com {
 ## 排障
 
 - `GET /healthz` 返回 200 即 web 正常。
-- 管理后台的“Worker 运行”页和 `newsd worker runs` 看每次管线的各阶段、每个用户的结果和错误；“推送记录”页和 `newsd push list` 看投递结果。
+- 管理后台「日志与任务」页和 `newsd worker runs` 看每次管线的时间线、每个用户的结果和错误；同一页的「推送记录」和 `newsd push list` 看投递结果；「源健康」页看各信息源的抓取状态。
 - 推送到内网地址的 Webhook 默认被拒绝（SSRF 防护）；确实需要时设 `NEWSD_PUSH_ALLOW_PRIVATE=1`。
 - `database is locked`：SQLite 同时被多个进程写时偶发，连接超时已设为 30 秒；写入压力大就换 Postgres。
