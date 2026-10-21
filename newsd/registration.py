@@ -65,5 +65,15 @@ def register_user(db, username: str, password: str, invite: str = "") -> User:
     db.flush()
     if inv:
         inv.used_by = u.id
+        if inv.note:
+            u.email = inv.note
+        if inv.group_id:  # 3c: the invite's group: membership, its default role and default sources
+            from .admin_console import join
+            from .models import UserGroup
+            g = db.get(UserGroup, inv.group_id)
+            if g is not None:
+                join(db, u, g, apply_role=True)
+    from .eventlog import add as log_event
+    log_event(db, "INFO", "auth", "注册" + ("（邀请码）" if inv else ""), user=u)
     db.commit()
     return u

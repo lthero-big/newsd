@@ -26,9 +26,9 @@ def test_admin_can_list_and_view_runs(client):
     full = client.get(f"/api/admin/worker-runs/{rows[0]['id']}").json()
     assert full["stages"][0]["counts"] == {"new_items": 4} and full["errors"] == ["source rss:bad: failed:http-500"]
     assert client.get("/api/admin/worker-runs/999").status_code == 404
-    page = client.get("/admin")
-    assert page.status_code == 200 and "2026-10-21" in page.text and "new_items=4" in page.text
-    assert "boom <script>" not in page.text and "boom &lt;script&gt;" in page.text and "&lt;b&gt;evil" in page.text  # escaped
+    page = client.get("/admin/logs")  # 3c: runs are on the 日志与任务 timeline (JSON rendered by admin-logs.js)
+    assert page.status_code == 200 and '"issue_key": "2026-10-21"' in page.text and '"new_items": 4' in page.text
+    assert "boom <script>" not in page.text and "<b>evil" not in page.text  # never raw HTML in the page
 
 
 def test_runs_are_admin_only(client):

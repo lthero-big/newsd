@@ -4,6 +4,6 @@
 {% if registration == "closed" %}<p>目前不开放注册，请联系管理员。</p>
 {% else %}<form method="post" action="/register"><div class="field"><label for="u">用户名</label><input class="input" id="u" name="username" autocomplete="username" minlength="2" maxlength="64" required></div>
 <div class="field"><label for="p">密码</label><input class="input" id="p" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="至少 8 位" required></div>
-<div class="field"><label for="i">邀请码{% if registration == "open" %}（可选）{% endif %}</label><input class="input mono" id="i" name="invite"{% if registration == "invite" %} required{% endif %}></div>
+<div class="field"><label for="i">邀请码{% if registration == "open" %}（可选）{% endif %}</label><input class="input mono" id="i" name="invite" value="{{ request.query_params.get('invite', '')[:120] }}"{% if registration == "invite" %} required{% endif %}></div>
 <button type="submit" class="btn primary" style="width:100%;justify-content:center;padding:10px">注册并继续</button></form>{% endif %}
 <p class="muted" style="text-align:center;font-size:14px;margin-top:20px"><a href="/login" style="color:var(--accent)">已有账号，去登录</a></p>{% endblock %}

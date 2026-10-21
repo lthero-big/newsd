@@ -86,6 +86,11 @@ def _attempt(db, d: PushDelivery, cfg: ChannelConfig, digest, sleep=_time.sleep,
         _fail(d, entry, ch.redact(f"{type(exc).__name__}: {exc}", cfg.secrets()), True, None, t)
     entry["sent"] = d.progress - start
     d.log = (d.log or []) + [entry]
+    if d.status in ("failed", "retrying"):
+        from ..eventlog import add as ev
+        ev(db, "ERROR" if d.status == "failed" else "WARN", "push",
+           f"推送{'失败' if d.status == 'failed' else '失败，稍后重试'} · {d.channel} · 第 {d.attempts}/{d.max_attempts} 次：{d.error or ''}",
+           user=db.get(User, d.user_id), detail={"delivery": d.id, "channel": d.channel, "issue": d.issue_key, "kind": d.kind})
     db.commit()
 
 

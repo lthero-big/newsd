@@ -173,7 +173,7 @@ def test_admin_sees_deliveries_and_errors_are_escaped(client, net):
     assert rows[0]["attempts"] == 1 and "500" in rows[0]["error"] and rows[0]["log"][0]["ok"] is False
     assert client.get("/api/admin/push-deliveries?status=ok").json() == []
     assert len(client.get("/api/admin/push-deliveries?channel=webhook").json()) == 1
-    page = client.get("/admin").text
+    page = client.get("/admin/logs").text  # 3c: push records moved to 日志与任务
     assert "推送记录" in page and "alice" in page and "<script>alert(1)</script>" not in page and "SECRETPATH" not in page
 
 

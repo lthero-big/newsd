@@ -18,9 +18,11 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user
+    role: Mapped[str] = mapped_column(String(16), default="user")  # admin | user | readonly (3c)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 3c: filled from an e-mail invite; display only
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # 3c: last authenticated request
 
 
 class Invite(Base):
@@ -31,6 +33,57 @@ class Invite(Base):
     used_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    # 3c: an invite can put the new user into a group (role / default sources from the group) and remember an e-mail
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("user_groups.id", ondelete="SET NULL"), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class UserGroup(Base):
+    """DEPTAI-216 3c: a user group. Members get the union of their groups' permissions (see newsd/perms.py);
+    ``role`` is the role an invited user starts with, ``default_sources`` are subscribed when someone joins,
+    ``quota`` caps a member's daily issue (the most generous of their groups wins; None = no group cap)."""
+    __tablename__ = "user_groups"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    __table_args__ = (UniqueConstraint("name", name="uq_user_groups_name"),)
+    name: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(String(255), default="")
+    color: Mapped[str] = mapped_column(String(16), default="#64748b")
+    role: Mapped[str] = mapped_column(String(16), default="user")
+    perms: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    default_sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class UserGroupMember(Base):
+    __tablename__ = "user_group_members"
+    group_id: Mapped[int] = mapped_column(ForeignKey("user_groups.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class UserActivity(Base):
+    """3c: one row per (user, UTC day) with an authenticated request: the admin overview's active-user trend."""
+    __tablename__ = "user_activity"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), primary_key=True, index=True)
+
+
+class LogEvent(Base):
+    """3c: structured operational log for the admin 日志与任务 page (worker stages, fetch / push / model failures,
+    logins, WARNING+ records of the newsd loggers). Messages are redacted before they are stored; pruned after 30 days."""
+    __tablename__ = "log_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    level: Mapped[str] = mapped_column(String(8), default="INFO", index=True)  # DEBUG | INFO | WARN | ERROR
+    module: Mapped[str] = mapped_column(String(32), default="api", index=True)
+    message: Mapped[str] = mapped_column(Text, default="")
+    source_key: Mapped[str | None] = mapped_column(String(191), nullable=True, index=True)
+    run_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    username: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class WebSession(Base):

@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy import delete, func, select
 
 from .db import SessionLocal
-from .models import ApiToken, LoginFailure, User, WebSession, now
+from .models import ApiToken, LoginFailure, User, UserActivity, WebSession, now
 from .security import new_token, token_hash, verify_password
 from .settings import get_settings
 
@@ -53,6 +53,29 @@ def create_session(db, user: User) -> str:
     return tok
 
 
+_seen: dict[tuple, tuple[str, object]] = {}
+TOUCH_SECONDS = 300
+
+
+def touch(db, u: User) -> None:
+    """3c: keep users.last_seen_at roughly current (at most one write per user per 5 minutes per process) and
+    record one user_activity row per UTC day, for the admin overview's active-user numbers."""
+    t = now()
+    day = t.strftime("%Y-%m-%d")
+    k = (id(db.get_bind()), u.id)
+    prev = _seen.get(k)
+    if prev and prev[0] == day and (t - prev[1]).total_seconds() < TOUCH_SECONDS:
+        return
+    _seen[k] = (day, t)
+    try:
+        u.last_seen_at = t
+        if (not prev or prev[0] != day) and db.get(UserActivity, (u.id, day)) is None:
+            db.add(UserActivity(user_id=u.id, day=day))
+        db.commit()
+    except Exception:  # noqa: BLE001  (a concurrent insert of the same day row; activity is best effort)
+        db.rollback()
+
+
 def current_user(request: Request, db=Depends(get_db)) -> User | None:
     auth = request.headers.get("authorization", "")
     raw = auth[7:].strip() if auth.lower().startswith("bearer ") else request.headers.get("x-news-api-key", "")
@@ -62,14 +85,20 @@ def current_user(request: Request, db=Depends(get_db)) -> User | None:
             t.last_used_at = now()
             db.commit()
             u = db.get(User, t.user_id)
-            return u if u and u.active else None
+            if u and u.active:
+                touch(db, u)
+                return u
+            return None
         return None  # unknown keys are anonymous, never a new namespace
     cookie = request.cookies.get(COOKIE)
     if cookie:
         s = db.scalar(select(WebSession).where(WebSession.token_hash == token_hash(cookie)))
         if s and s.expires_at > now():
             u = db.get(User, s.user_id)
-            return u if u and u.active else None
+            if u and u.active:
+                touch(db, u)
+                return u
+            return None
     return None
 
 

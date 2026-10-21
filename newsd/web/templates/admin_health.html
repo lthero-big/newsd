@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}源健康 · newsd{% endblock %}
+{% block console %}
+<div class="page-head"><div class="row sp wrap-r"><div><div class="kicker"><span class="dot"></span>Admin · 全站源健康</div><h1 class="display">源<em>健康</em></h1><p>异常放最上面；正常的源按类别折叠成一格一个小方块，点类别卡片展开明细和 14 天历史。连续失败 2 次算「失败」，最近一次失败或连续 3 次没有条目算「警告」。</p></div>
+<div class="row wrap-r"><span class="muted mono" style="font-size:12px" id="chk"></span><button class="btn" id="addRss" type="button">＋ 添加 RSS 源</button><button class="btn" id="recheck" type="button">↻ 全部重新检测</button></div></div></div>
+<div class="hsum" id="sum"></div>
+<section class="card flush" id="probBox"><div class="row sp" style="padding:12px 14px;border-bottom:1px solid var(--line)"><b>需要处理 <span class="tag err" id="pN"></span></b><span class="muted" style="font-size:12px">失败在前，然后是警告</span></div><div id="probs"></div></section>
+<div class="row sp wrap-r" style="margin:22px 0 10px"><h2 class="sec" style="margin:0">按类别</h2><div class="seg" id="hf" role="tablist" aria-label="筛选"><button role="tab" aria-selected="true" data-f="all" type="button">全部</button><button role="tab" aria-selected="false" data-f="bad" type="button">只看有异常的类别</button></div></div>
+<div class="hgrid" id="grid"></div>
+<div class="overlay" id="rdlg" role="dialog" aria-modal="true" aria-labelledby="rT"><div class="modal sm"><header><h3 id="rT">添加 RSS 源</h3><button class="btn ghost icon" data-close aria-label="关闭" type="button">✕</button></header>
+ <div class="body"><div class="field"><label for="rId">ID（字母数字，成为 rss:ID）</label><input class="input mono" id="rId" maxlength="63"></div><div class="field"><label for="rName">名称</label><input class="input" id="rName" maxlength="191"></div><div class="field"><label for="rUrl">Feed 地址</label><input class="input mono" id="rUrl" type="url" placeholder="https://…/feed.xml"></div><span class="hint">加入全站源目录；用户在「订阅源」里自己添加。其他类型的源来自 config/collect-sources.json。</span></div>
+ <footer><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="rSave" type="button">添加</button></footer></div></div>
+{% endblock %}
+{% block script %}<script>window.ND_HEALTH={{ init|tojson }}</script><script src="/static/v2/admin-health.js?v={{ asset_v }}"></script>{% endblock %}

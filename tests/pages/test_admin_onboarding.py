@@ -17,7 +17,9 @@ def test_admin_pages_and_api_are_admin_only(client):
     assert 'href="/admin"' not in page and "管理</div>" not in page  # no 管理 group in the console nav or the avatar menu
     _admin(client)
     r = client.get("/admin")
-    assert r.status_code == 200 and "管理后台" in r.text and "erin" in r.text
+    assert r.status_code == 200 and "管理概览" in r.text and "erin" not in r.text  # 3c: the overview has numbers only
+    r = client.get("/admin/users")
+    assert r.status_code == 200 and "erin" in r.text and 'aria-current="page"' in r.text
 
 
 def test_admin_users_invites_registration(client):
@@ -53,7 +55,7 @@ def test_admin_users_invites_registration(client):
     assert spare["status"] == "unused" and client.delete(f"/api/admin/invites/{spare['id']}").status_code == 200
     assert client.post("/api/admin/registration", data={"mode": "closed"}).status_code == 200
     assert client.get("/api/admin/registration").json()["mode"] == "closed"
-    assert "关闭注册" in client.get("/admin").text
+    assert "关闭注册" in client.get("/admin/users").text
 
 
 def login_status(client, name):
@@ -92,8 +94,8 @@ def test_source_catalog_quality_and_runs(client):
     assert rows["rss:silent"]["selected"] == 0 and rows["rss:silent"]["pass_rate"] == 0.0 and rows["rss:silent"]["subscribers"] == 0
     assert rows["rss:good"]["subscribers"] == 1 and rows["rss:good"]["last_fetch"]["status"] == "ok"
     assert rows["rss:silent"]["last_fetch"]["status"] == "failed:timeout"
-    page = client.get("/admin").text
-    assert "100%" in page and "25%" in page and "failed:timeout" in page
+    page = client.get("/admin/health").text  # 3c: source quality lives on 源健康 (rendered from this JSON)
+    assert '"pass_rate": 1.0' in page and '"pass_rate": 0.25' in page and "failed:timeout" in page
 
     runs = client.get("/api/admin/runs").json()
     assert {f["status"] for f in runs["fetches"]} == {"ok", "failed:timeout"}

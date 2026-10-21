@@ -112,11 +112,17 @@ def test_every_require_admin_route_lives_under_admin_prefix(client):
     def uses_admin(dep):
         return dep.call is require_admin or any(uses_admin(d) for d in dep.dependencies)
 
+    def perm_of(dep):
+        return getattr(dep.call, "perm", None) or next((p for d in dep.dependencies if (p := perm_of(d))), None)
+
     for r in api_routes(client.app.routes):
         under = r.path == "/admin" or r.path.startswith("/api/admin/")
         if uses_admin(r.dependant):
             assert under, r.path
         elif r.path.startswith("/api/admin/"):
+            # 3c: the read-only log / timeline endpoints may instead be gated by the group permission "logs"
+            if perm_of(r.dependant) == "logs" and r.methods <= {"GET", "HEAD"}:
+                continue
             pytest.fail(f"{r.path} is under /api/admin but does not depend on require_admin")
 
 

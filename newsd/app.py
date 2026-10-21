@@ -25,7 +25,8 @@ def create_app() -> FastAPI:
     from .prefs import router as prefs_router
     app.include_router(prefs_router)
     from .llm.api import router as llm_router
-    app.include_router(llm_router)
+    from .perms import guard
+    app.include_router(llm_router, dependencies=[Depends(guard("model"))])  # 3c: group permissions
     from .issues import router as issues_router
     app.include_router(issues_router)
     from .admin import router as admin_router
@@ -37,7 +38,11 @@ def create_app() -> FastAPI:
     from .feedback import router as feedback_router
     from .zones import router as zones_router
     from .userprefs import router as userprefs_router
-    for r in (marks_router, feedback_router, zones_router, userprefs_router, push_router, onboarding_router, admin_router, worker_runs_router, pages_router):
+    from .admin_console import router as console_router
+    app.include_router(zones_router, dependencies=[Depends(guard("src"))])
+    app.include_router(push_router, dependencies=[Depends(guard("push"))])
+    for r in (marks_router, feedback_router, userprefs_router, onboarding_router, admin_router, worker_runs_router, console_router,
+              pages_router):
         app.include_router(r)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "web" / "static")), name="static")
 
@@ -52,9 +57,13 @@ def create_app() -> FastAPI:
     @app.post("/login")
     def login(request: Request, username: str = Form(...), password: str = Form(...), db=Depends(get_db)):
         user = authenticate(db, client_ip(request), username, password)
+        from .eventlog import add as log_event
         if not user:
+            log_event(db, "WARN", "auth", "登录失败", user=username[:64], detail={"ip": client_ip(request)})
+            db.commit()
             return render(request, "login.html", None, db, 401, error="用户名或密码错误", registration=get_registration_mode(db))
         resp = RedirectResponse("/", 303)
+        log_event(db, "INFO", "auth", "登录", user=user, detail={"ip": client_ip(request)})
         resp.set_cookie(COOKIE, create_session(db, user), httponly=True, samesite="lax",
                         secure=get_settings().cookie_secure, max_age=get_settings().session_days * 86400)
         return resp

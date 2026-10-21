@@ -243,6 +243,10 @@ def load_caps(db, user_id: int) -> Caps:
         else:
             caps.groups.append({"module": q.module, "group": q.group_name, "max_items": q.max_items,
                                 "categories": [core.fold(x) for x in (q.categories or [q.group_name])]})
+    from .perms import group_quota
+    gq = group_quota(db, user_id)  # 3c: a group's daily quota caps the member's own total
+    if gq is not None:
+        caps.total = min(caps.total, gq)
     return caps
 
 

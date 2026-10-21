@@ -73,6 +73,7 @@ table.t th{font:600 12px var(--font-mono);letter-spacing:.08em;text-transform:up
 table.t td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
 table.t tr:last-child td{border-bottom:0}
 .scroll-x{overflow-x:auto}
+#push{min-width:760px}
 .card.flush{padding:0;overflow:hidden}
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:14px;transition:.25s;z-index:99;pointer-events:none}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -397,7 +398,7 @@ body[data-fb=like] .acts .a-down{display:none}
 .hist .b i{display:block;background:var(--lc)}.hist .b.on{outline:1px solid var(--ink)}
 .hist-ax{display:flex;justify-content:space-between;font:10px var(--font-mono);color:var(--muted)}
 .runs{display:grid;gap:8px}
-.run{display:grid;grid-template-columns:170px 1fr 110px;gap:14px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer}
+.run{display:grid;grid-template-columns:170px 1fr 150px;gap:14px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);cursor:pointer}
 .run[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--bg))}
 .run .id{font:12px var(--font-mono)}.run .id b{display:block;font:600 14px var(--font-body)}
 .gantt{position:relative;height:22px;background:color-mix(in srgb,var(--ink) 4%,transparent);border-radius:6px}
@@ -419,6 +420,7 @@ tr.detail td{background:color-mix(in srgb,var(--danger) 6%,var(--surface));paddi
 tr.detail pre{margin:8px 0 0;font:12px/1.55 var(--font-mono);white-space:pre-wrap;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;max-height:240px;overflow:auto}
 .lt-wrap{max-height:560px;overflow:auto}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);z-index:65;background:var(--surface);border-left:1px solid var(--line);box-shadow:-20px 0 60px -20px rgba(0,0,0,.35);transform:translateX(102%);transition:transform .32s cubic-bezier(.22,1,.36,1);display:flex;flex-direction:column}
+.drawer:not(.open){visibility:hidden;box-shadow:none;transition:transform .32s cubic-bezier(.22,1,.36,1),visibility 0s .32s,box-shadow 0s .32s}
 .drawer.open{transform:none}
 .drawer>header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}.drawer>header h3{margin:0;font-size:16px;flex:1}
 .drawer .body{padding:16px 20px;overflow:auto;flex:1}

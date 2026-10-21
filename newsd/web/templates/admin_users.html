@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}用户与分组 · newsd{% endblock %}
+{% block console %}
+<div class="page-head"><div class="row sp wrap-r"><div><div class="kicker"><span class="dot"></span>Admin · 用户与分组</div><h1 class="display">用户与<em>分组</em></h1><p>先按分组管理：每个组有默认角色、权限、默认订阅源和每日配额，成员继承组设置。一个人可以在多个组里，权限取并集。</p></div>
+<div class="row wrap-r"><label class="row" style="gap:6px;font-size:13px">注册方式 <select class="input" id="reg" style="width:auto;padding:5px 10px">{% for m, n in [("invite", "邀请码注册"), ("open", "公开注册"), ("closed", "关闭注册")] %}<option value="{{ m }}"{% if m == mode %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+<button class="btn" id="newG" type="button">＋ 新建分组</button><button class="btn primary" id="invite" type="button">＋ 邀请用户</button></div></div></div>
+<div class="ug">
+ <nav class="glist" id="glist" role="tablist" aria-label="分组"></nav>
+ <div style="min-width:0">
+  <section class="card" id="ghead"></section>
+  <div class="utools"><input class="input" id="uq" type="search" placeholder="搜索用户名或邮箱…" style="width:240px;max-width:100%">
+   <select class="input" id="uSt" style="width:auto" aria-label="状态"><option value="">全部状态</option><option value="active">正常</option><option value="invited">已邀请</option><option value="disabled">已停用</option></select>
+   <select class="input" id="uRole" style="width:auto" aria-label="角色"><option value="">全部角色</option><option value="admin">管理员</option><option value="user">成员</option><option value="readonly">只读</option></select>
+   <select class="input" id="uSort" style="width:auto" aria-label="排序"><option value="last">最近活跃</option><option value="name">用户名</option><option value="created">加入时间</option></select><span style="flex:1"></span><span class="muted mono" style="font-size:12px" id="uN"></span></div>
+  <div class="bulkbar" id="bulk" hidden><b id="bN"></b><span style="flex:1"></span>
+   <select class="input" id="bG" style="width:auto;padding:5px 10px;font-size:13px" aria-label="加入分组"><option value="">加入分组…</option></select>
+   <select class="input" id="bR" style="width:auto;padding:5px 10px;font-size:13px" aria-label="改角色"><option value="">改角色…</option><option value="admin">管理员</option><option value="user">成员</option><option value="readonly">只读</option></select>
+   <button class="btn sm" data-b="remove_group" type="button">移出当前组</button><button class="btn sm" data-b="reset_password" type="button">重置密码</button><button class="btn sm danger" data-b="disable" type="button">停用</button><button class="btn sm" data-b="enable" type="button">启用</button><button class="btn sm" data-b="clr" type="button">取消选择</button></div>
+  <section class="card flush scroll-x"><table class="ut"><thead><tr><th style="width:34px"><input type="checkbox" id="all" aria-label="全选本页"></th><th>用户</th><th>分组</th><th class="c-role">角色</th><th>状态</th><th class="c-last">最近活跃</th></tr></thead><tbody id="rows"></tbody></table>
+   <div class="pager"><span id="pinfo"></span><div class="row" style="gap:6px"><button class="btn sm" id="pp" type="button">‹ 上一页</button><button class="btn sm" id="pn" type="button">下一页 ›</button></div></div></section>
+ </div>
+</div>
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-labelledby="dwT"><header><h3 id="dwT">用户</h3><button class="btn ghost icon" id="dwX" aria-label="关闭" type="button">✕</button></header><div class="body" id="dwB"></div>
+ <footer id="dwF"></footer></aside>
+<div class="overlay" id="gdlg" role="dialog" aria-modal="true" aria-labelledby="gT"><div class="modal"><header><h3 id="gT">分组</h3><button class="btn ghost icon" data-close aria-label="关闭" type="button">✕</button></header>
+ <div class="body"><div class="field"><label for="gName">分组名称</label><input class="input" id="gName" maxlength="64"></div><div class="field"><label for="gDesc">说明</label><input class="input" id="gDesc" maxlength="255"></div>
+  <div class="field"><label>颜色</label><div class="row" id="gCol" style="gap:8px"></div></div>
+  <div class="field"><label for="gRole">默认角色</label><select class="input" id="gRole" style="width:auto"><option value="user">成员</option><option value="readonly">只读</option></select><span class="hint">通过此组的邀请码注册的新用户使用这个角色；成员所在的组全是只读组时，按只读处理（不能改订阅源和模型）。管理员角色只能对单个用户设置。</span></div>
+  <div class="field"><label>权限</label><table class="pmx" id="gPerm"></table><span class="hint">「管理用户与分组」「全站源 / 系统设置」只属于管理员角色，不能通过分组授予（否则成员可以给自己加权限）。</span></div>
+  <div class="input-row"><div class="field" style="flex:2;min-width:0"><label for="gSrcQ">默认订阅源</label><input class="input" id="gSrcQ" list="gSrcL" placeholder="输入源名称或 key，回车添加"><datalist id="gSrcL"></datalist><div id="gSrc" style="margin-top:6px"></div><span class="hint">有人加入此组时自动订阅（已订阅的不重复）。</span></div>
+   <div class="field" style="flex:1"><label for="gQ">每日配额</label><input class="input" id="gQ" type="number" min="0" max="1000" placeholder="不限"><span class="hint">条/天，留空不限；多个组取最宽松的。</span></div></div></div>
+ <footer><button class="btn ghost danger" id="gDel" type="button">删除分组</button><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="gSave" type="button">保存</button></footer></div></div>
+<div class="overlay" id="idlg" role="dialog" aria-modal="true" aria-labelledby="iT"><div class="modal" style="width:min(560px,100%)"><header><h3 id="iT">邀请用户</h3><button class="btn ghost icon" data-close aria-label="关闭" type="button">✕</button></header>
+ <div class="body" id="iBody"><div class="field"><label for="iMail">邮箱（多个用逗号或换行分隔）</label><textarea class="input" id="iMail" rows="3" placeholder="wang@example.com, li@example.com"></textarea><span class="hint">newsd 不发邮件：每个邮箱生成一个一次性邀请链接，复制后自己发给对方。</span></div>
+  <div class="input-row"><div class="field" style="flex:2"><label for="iG">加入分组</label><select class="input" id="iG"></select><span class="hint">成员继承该组的角色、权限、默认源和配额。</span></div><div class="field" style="flex:1"><label for="iDays">有效期</label><select class="input" id="iDays"><option value="7">7 天</option><option value="14" selected>14 天</option><option value="30">30 天</option></select></div></div></div>
+ <div class="body" id="iOut" hidden></div>
+ <footer><button class="btn" id="iLink" type="button">复制一个邀请链接</button><span style="flex:1"></span><button class="btn ghost" data-close type="button">关闭</button><button class="btn primary" id="iSend" type="button">生成邀请</button></footer></div></div>
+<div class="overlay" id="pdlg" role="dialog" aria-modal="true" aria-labelledby="pT"><div class="modal sm"><header><h3 id="pT">临时密码</h3><button class="btn ghost icon" data-close aria-label="关闭" type="button">✕</button></header>
+ <div class="body"><p class="muted" style="margin-top:0;font-size:13px">只显示这一次。对方的所有会话已下线，请让他们登录后在「账号」里改密码。</p><div id="pList"></div></div>
+ <footer><span style="flex:1"></span><button class="btn" id="pCopy" type="button">全部复制</button><button class="btn primary" data-close type="button">好</button></footer></div></div>
+{% endblock %}
+{% block script %}<script>window.ND_USERS={{ init|tojson }}</script><script src="/static/v2/admin-users.js?v={{ asset_v }}"></script>{% endblock %}

@@ -7,6 +7,7 @@ from sqlalchemy import delete, select
 
 from .auth import get_db, require_user
 from .models import Keyword, Quota, Source, Subscription, SubscriptionTemplate, SubscriptionTemplateItem
+from .perms import guard
 
 router = APIRouter(prefix="/api")
 OVERRIDE_KEYS = {"label", "max_items", "min_likes", "min_score", "content_extractor", "language"}
@@ -38,7 +39,7 @@ def my_subs(user=Depends(require_user), db=Depends(get_db)):
     return [{"source": s.key, "enabled": sub.enabled, "overrides": sub.overrides or {}} for sub, s in rows]
 
 
-@router.put("/me/subscriptions")
+@router.put("/me/subscriptions", dependencies=[Depends(guard("src"))])
 def put_sub(body: SubIn, user=Depends(require_user), db=Depends(get_db)):
     src = db.scalar(select(Source).where(Source.key == body.source, Source.enabled.is_(True)))
     if src is None:
@@ -54,7 +55,7 @@ def put_sub(body: SubIn, user=Depends(require_user), db=Depends(get_db)):
     return {"source": src.key, "enabled": sub.enabled, "overrides": sub.overrides or {}}
 
 
-@router.delete("/me/subscriptions/{key:path}")
+@router.delete("/me/subscriptions/{key:path}", dependencies=[Depends(guard("src"))])
 def del_sub(key: str, user=Depends(require_user), db=Depends(get_db)):
     src = db.scalar(select(Source).where(Source.key == key))
     n = 0
@@ -66,7 +67,7 @@ def del_sub(key: str, user=Depends(require_user), db=Depends(get_db)):
     return {"ok": True}
 
 
-@router.post("/me/subscriptions/apply-template")
+@router.post("/me/subscriptions/apply-template", dependencies=[Depends(guard("src"))])
 def apply_template(name: str = "default", user=Depends(require_user), db=Depends(get_db)):
     return apply_template_to_user(db, user.id, name)
 

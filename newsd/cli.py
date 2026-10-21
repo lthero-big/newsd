@@ -6,7 +6,7 @@ import sys
 
 from sqlalchemy import select
 
-ROLES = ("user", "admin")
+ROLES = ("user", "admin", "readonly")  # 3c: readonly = can read and set up push, not change sources / models
 
 
 def _read_password(args) -> str:
@@ -134,6 +134,9 @@ def main(argv=None) -> int:
 
     if args.cmd == "serve":
         import uvicorn
+
+        from .eventlog import install
+        install()  # 3c: WARNING+ records of the newsd loggers also go to the admin log
         uvicorn.run("newsd.app:create_app", factory=True, host=args.host, port=args.port)
         return 0
     init_db()

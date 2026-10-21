@@ -14,7 +14,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
-from .admin import admin_runs, source_rows
 from .auth import current_user, get_db
 from .feedback import FEATURE_W, HALF_LIFE_DAYS, TRASH_DAYS, W_DELETE, W_DISLIKE, learn_settings, trash_items
 from .issues import issue_view, item_cards
@@ -23,7 +22,7 @@ from .llm.client import base_url
 from .llm.presets import REGIONS, VISIBLE
 from .llm.profiles import all_profiles, get_picks
 from .marks import trash_count
-from .models import Issue, IssueItem, ItemFeedback, ItemMark, PoolItem, Keyword, Quota, Subscription
+from .models import Issue, IssueItem, ItemFeedback, ItemMark, PoolItem, Keyword, Quota, Source, Subscription
 from .onboarding import is_onboarded, preset_groups
 from .registration import get_registration_mode
 from .settings import get_settings
@@ -41,7 +40,9 @@ READ_NAV = (("/", "日报", "issue", "◐"), ("/favorites", "收藏", "favorites
 CONSOLE_NAV = (("个人", (("/sources", "订阅源", "sources"), ("/models", "模型", "models"), ("/settings", "偏好与主题", "settings"),
                          ("/settings#learn", "学到的偏好", "learn"), ("/settings#more", "关键词、配额与推送", "more"),
                          ("/settings#acct", "账号", "acct")), False),
-               ("管理", (("/admin", "概览", "admin"),), True))
+               ("管理", (("/admin", "概览", "admin"), ("/admin/users", "用户与分组", "users"), ("/admin/health", "源健康", "health"),
+                        ("/admin/logs", "日志与任务", "logs")), True))
+LOGS_NAV = ("管理", (("/admin/logs", "日志与任务", "logs"),), False)  # 3c: a member granted the logs permission
 WEEK = "一二三四五六日"
 _STATIC = Path(__file__).parent / "web" / "static" / "v2"
 ASSET_V = format(int(max((f.stat().st_mtime for f in _STATIC.iterdir()), default=0)), "x")
@@ -62,8 +63,12 @@ def render(request: Request, name: str, user, db, status_code: int = 200, **ctx)
         theme, ui, trash_n = get_palette(db, user.id), get_ui(db, user.id), trash_count(db, user.id)
     else:
         theme, ui, trash_n = normalize_theme(request.cookies.get(THEME_COOKIE)) or DEFAULT_PALETTE, {"feedback": "both", "motion": "on"}, 0
+    nav = CONSOLE_NAV
+    if user is not None and user.role != "admin":
+        from .perms import has
+        nav = CONSOLE_NAV + ((LOGS_NAV,) if has(db, user, "logs") else ())
     base = {"user": user, "palette": theme, "theme": theme, "themes": THEMES, "ui": ui, "trash_n": trash_n, "read_nav": READ_NAV,
-            "console_nav": CONSOLE_NAV, "asset_v": ASSET_V, "modules": MODULES}
+            "console_nav": nav, "asset_v": ASSET_V, "modules": MODULES}
     return templates.TemplateResponse(request, name, base | ctx, status_code=status_code)
 
 
@@ -242,17 +247,57 @@ def models_page(request: Request, user=Depends(current_user), db=Depends(get_db)
                   profiles=list(all_profiles().values()), picked=picked)
 
 
-@router.get("/admin", response_class=HTMLResponse)
-def admin_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
-    if user is None:
-        return login_redirect()
+def _admin_or_403(user):
     if user.role != "admin":
         raise HTTPException(403, "admin only")
-    from .admin import admin_invites, admin_users
-    from .admin_runs import recent_runs
-    from .push.api import recent_deliveries
-    from .worker import run_view
-    return render(request, "admin.html", user, db, area="console", page="admin", mode=get_registration_mode(db),
-                  invites=admin_invites(user, db), users=admin_users(user, db), sources=source_rows(db, 30), days=30,
-                  runs=admin_runs(30, user, db), worker_runs=[run_view(r) for r in recent_runs(db, 20)],
-                  push_deliveries=recent_deliveries(db, 50))
+
+
+@router.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    """3c 管理概览: summary numbers only (users → 用户与分组, sources → 源健康, runs → 日志与任务)."""
+    if user is None:
+        return login_redirect()
+    _admin_or_403(user)
+    from .admin_console import overview
+    return render(request, "admin.html", user, db, area="console", page="admin", ov=overview(user, db))
+
+
+@router.get("/admin/users", response_class=HTMLResponse)
+def admin_users_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    if user is None:
+        return login_redirect()
+    _admin_or_403(user)
+    from .admin_console import list_groups, people
+    from .zones import CATS, category
+    catalog = [{"key": s.key, "name": s.name or s.key, "cat": category(s.key, s.kind)}
+               for s in db.scalars(select(Source).where(Source.enabled.is_(True)).order_by(Source.key))]
+    return render(request, "admin_users.html", user, db, area="console", page="users", mode=get_registration_mode(db),
+                  init={"people": people(user, db), "groups": list_groups(user, db), "me": user.id, "catalog": catalog,
+                        "cats": {k: v[0] for k, v in CATS.items()}, "mode": get_registration_mode(db)})
+
+
+@router.get("/admin/health", response_class=HTMLResponse)
+def admin_health_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    if user is None:
+        return login_redirect()
+    _admin_or_403(user)
+    from .admin_console import health
+    return render(request, "admin_health.html", user, db, area="console", page="health", init=health(user, db))
+
+
+@router.get("/admin/logs", response_class=HTMLResponse)
+def admin_logs_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    """Admins, and members whose group grants ``logs`` (read-only: no rerun / no source actions)."""
+    if user is None:
+        return login_redirect()
+    from .perms import has
+    if not has(db, user, "logs"):
+        raise HTTPException(403, "permission required: logs")
+    from .admin_console import timeline
+    admin = user.role == "admin"
+    push = []
+    if admin:
+        from .push.api import recent_deliveries
+        push = recent_deliveries(db, 50)
+    return render(request, "admin_logs.html", user, db, area="console", page="logs",
+                  init={"timeline": timeline(12, user, db), "admin": admin, "push": push})

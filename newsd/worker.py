@@ -11,11 +11,13 @@ import asyncio
 import copy
 import logging
 import re
+import traceback
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
+from .eventlog import add as ev, prune as prune_events
 from .issues import build_issue, default_key
 from .models import User, WorkerRun
 from .pool import cycle_key, run_cycle
@@ -29,6 +31,10 @@ ERR_LEN = 300
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _stack(exc: BaseException) -> str:
+    return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-4000:]
 
 
 def _err(exc: BaseException) -> str:
@@ -126,6 +132,8 @@ async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None,
     db.add(run); db.commit()
     rec = _Recorder(db, run)
     log.info("run %s start trigger=%s cycle=%s key=%s", run.id, trigger, cycle, key)
+    ev(db, "INFO", "scheduler", f"运行开始 · {trigger} · 期 {key}", run_id=run.id, detail={"cycle": cycle})
+    db.commit()
     pool_failed = False
     try:
         if pool:
@@ -135,12 +143,20 @@ async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None,
                 counts, errs = _pool_counts(rep)
                 for e in errs:
                     rec.error(e)
+                for k, v in (rep.get("sources") or {}).items():
+                    if str(v).startswith("failed"):
+                        ev(db, "ERROR", "fetch", f"抓取失败：{str(v).removeprefix('failed:') or 'failed'}", source=k, run_id=run.id,
+                           detail={"status": str(v), "cycle": cycle})
+                ev(db, "INFO", "fetch", f"采集完成 · {counts['sources']} 个源 · 新增 {counts.get('new_items', 0)} 条"
+                   + (f" · 失败 {counts['sources_failed']}" if counts["sources_failed"] else ""), run_id=run.id, detail=counts)
                 rec.end(st, "ok" if not errs else "partial", counts)
             except Exception as exc:  # noqa: BLE001  (stale pool is still better than no issue)
                 db.rollback()
                 pool_failed = True
                 rec.error(f"collect: {_err(exc)}")
                 rec.end(st, "failed", error=_err(exc))
+                ev(db, "ERROR", "fetch", f"采集阶段失败：{_err(exc)}", run_id=run.id, detail={"stack": _stack(exc)})
+                db.commit()
                 log.exception("collection failed; building issues from the existing pool")
 
         st = rec.stage("issues")
@@ -157,10 +173,17 @@ async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None,
                        "dropped": rep.get("dropped", {}), "model_requests": (rep.get("usage") or {}).get("requests", 0)}
                 ok += 1
                 items += rep["items_out"]
+                ev(db, "INFO", "compose", f"日报 {key} · 候选 {rep['items_in']} → 入选 {rep['items_out']}", run_id=run.id, user=u,
+                   detail={"ai": rep["ai"], "dropped": rep.get("dropped", {})})
+                fo = int((rep.get("usage") or {}).get("failovers", 0) or 0)
+                if fo:
+                    ev(db, "WARN", "llm", f"模型切换 {fo} 次（主用失败后改用备份）", run_id=run.id, user=u,
+                       detail={"chain": ", ".join((rep.get("usage") or {}).get("chain") or [])})
             except Exception as exc:  # noqa: BLE001  (one user never stops the rest)
                 db.rollback()
                 row = {"user": u.username, "status": "failed", "error": _err(exc)}
                 rec.error(f"user {u.username}: {_err(exc)}")
+                ev(db, "ERROR", "compose", f"日报生成失败：{_err(exc)}", run_id=run.id, user=u, detail={"stack": _stack(exc)})
                 failed += 1
                 log.exception("issue for %s failed", u.username)
             row["seconds"] = round((_now() - t0).total_seconds(), 2)
@@ -179,7 +202,14 @@ async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None,
         rec.save()
         raise
     run.status, run.finished_at = status, _now()
+    ev(db, {"ok": "INFO", "partial": "WARN"}.get(status, "ERROR"), "scheduler",
+       f"运行结束 · {status} · 用时 {round((run.finished_at - run.started_at).total_seconds(), 1)}s"
+       + (f" · {len(rec.errors)} 个错误" if rec.errors else ""), run_id=run.id, detail={"errors": "\n".join(rec.errors[:20])})
     rec.save()
+    try:
+        prune_events(db)
+    except Exception:  # noqa: BLE001
+        db.rollback()
     log.info("run %s %s: %s", run.id, status, rec.errors[:3])
     return run_view(run)
 
@@ -266,6 +296,8 @@ def serve() -> int:
     from .db import SessionLocal
     s = get_settings()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from .eventlog import install
+    install()  # 3c: WARNING+ records also go to the admin log (日志与任务)
     sched = build_scheduler(blocking=True)  # validates times / tz before anything else
     db = SessionLocal()
     try:

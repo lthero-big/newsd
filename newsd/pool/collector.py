@@ -349,7 +349,7 @@ async def _extract_items(db, todo: list[tuple[PoolItem, Source]], fetcher: Fetch
 
 
 async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = None, kinds: set[str] | None = None,
-                    extract: bool = True, lookback_hours: float = 26, concurrency: int = 8,
+                    keys: set[str] | None = None, extract: bool = True, lookback_hours: float = 26, concurrency: int = 8,
                     max_age_days: float = MAX_AGE_DAYS, max_extract_per_source: int = MAX_EXTRACT_PER_SOURCE) -> dict:
     cycle = cycle or cycle_key()
     now = _utcnow()
@@ -360,7 +360,7 @@ async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = N
               "too_old": 0, "extracted": 0, "extract_failed": 0, "extract_cache_hits": 0}
     oldest = now - timedelta(days=max_age_days)
     try:
-        sources = [s for s in subscribed_sources(db) if not kinds or s.kind in kinds]
+        sources = [s for s in subscribed_sources(db) if (not kinds or s.kind in kinds) and (not keys or s.key in keys)]
         claimed: list[tuple[Source, SourceFetch]] = []
         for src in sources:
             row = _claim(db, src, cycle)
