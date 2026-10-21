@@ -6,7 +6,6 @@ import base64
 import hashlib
 import hmac
 import ipaddress
-import json
 import re
 import smtplib
 import socket

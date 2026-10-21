@@ -100,7 +100,7 @@
     "limit": 25
   },
   "rsshub": {
-    "_note": "自建 RSSHub（RSSHUB_BASE + RSSHUB_ACCESS_KEY 在 ~/.config/news-daily/env）；未配置时插件跳过。与 rss 里已有的源不重复（如 openai-news）。",
+    "_note": "自建 RSSHub（环境变量 RSSHUB_BASE + RSSHUB_ACCESS_KEY）；未配置时插件跳过。与 rss 里已有的源不重复（如 openai-news）。",
     "routes": [
       {
         "id": "rsshub-qbitai",

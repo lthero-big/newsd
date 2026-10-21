@@ -4,7 +4,7 @@ from sqlalchemy import select
 from poolseed import Pool
 from newsd import worker
 from newsd.models import PushDelivery
-from pushkit import WEBHOOK, configure, make_user
+from pushkit import WEBHOOK, configure
 
 
 def test_tick_builds_the_issue_then_pushes_it(db, net, monkeypatch):
@@ -21,7 +21,7 @@ def test_tick_builds_the_issue_then_pushes_it(db, net, monkeypatch):
     p.item("Qwen 3 released today", summary="a new open model")
     p.item("Unrelated gardening tips", summary="tomatoes")
     alice = p.user("alice", interest=["Qwen"])
-    bob = p.user("bob", interest=["Gardening"])
+    _bob = p.user("bob", interest=["Gardening"])
     configure(db, alice, {"webhook": {"enabled": True, "target": WEBHOOK, "type": "slack"}}, time="00:00")
     # bob has push switched off: he gets a report but no message
     net.on(WEBHOOK, (200, "ok"))

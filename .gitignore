@@ -10,3 +10,4 @@ var/
 *.egg-info/
 build/
 dist/
+.serena/

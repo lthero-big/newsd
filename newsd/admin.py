@@ -17,7 +17,7 @@ from sqlalchemy import distinct, func, select
 
 from .auth import get_db, require_admin
 from .models import (Invite, Issue, IssueItem, PoolItemSource, Source, SourceFetch, Subscription, User, now)
-from .registration import REG_MODES, get_registration_mode, set_registration_mode
+from .registration import REG_MODES, get_registration_mode
 
 router = APIRouter(prefix="/api/admin")
 

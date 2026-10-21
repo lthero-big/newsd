@@ -1,8 +1,10 @@
-import sys, unittest
+import sys
+import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import x_rsshub, source_config as sc
+import x_rsshub
+import source_config as sc
 
 NOW = datetime(2026, 10, 16, 9, tzinfo=timezone.utc)
 def item(i, h="OpenAI", when="2026-10-16T01:00:00.000Z", body=None):
@@ -26,7 +28,8 @@ class T(unittest.TestCase):
         self.assertTrue(r["items"][0]["avatar"].endswith("_400x400.jpg"))
 
     def test_retry_and_breaker(self):
-        import ssl, urllib.error
+        import ssl
+        import urllib.error
         calls, slept = {}, []
         def flaky(base, key, h, t):  # first attempt hits a TLS EOF, the retry works
             calls[h] = calls.get(h, 0) + 1

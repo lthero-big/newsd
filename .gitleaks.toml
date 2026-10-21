@@ -1,0 +1,9 @@
+title = "newsd gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Obviously fake API keys used as fixtures in the test suite"
+paths = ['''^tests/''']
+regexes = ['''sk-(live|test|alice|scoring|bob)-[A-Za-z0-9]+''']

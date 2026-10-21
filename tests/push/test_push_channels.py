@@ -2,8 +2,7 @@
 import base64
 import hashlib
 import hmac
-import json
-from urllib.parse import parse_qs, quote_plus, urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 

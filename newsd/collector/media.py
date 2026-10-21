@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 MIN_W = 600
-UA = {"User-Agent": "news-daily-media/1.0 (+https://github.com/newsd)"}
+UA = {"User-Agent": "newsd-media/1.0"}
 GENERIC_THUMBS = ("cdn-thumbnails.huggingface.co/social-thumbnails", "opengraph.githubassets.com")
 BADGE = re.compile(r"shields\.io|badge|badgen|/workflows/|travis-ci|codecov|img\.shields|star-history|contrib\.rocks|"
                    r"discord|twitter\.com/intent|hits\.|visitor|komarev|buymeacoffee|ko-fi|paypal|logo|icon|avatar|emoji|"

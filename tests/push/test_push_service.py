@@ -61,14 +61,14 @@ def test_waits_for_the_report_then_sends_and_gives_up_after_the_grace_period(db,
     add_issue(db, u, "2026-10-21", ["Late report"])
     assert service.dispatch_due(db, utc(9, 30))["ok"] == 1
     # a user who switches push on in the evening does not get a stale morning report
-    v = setup_user(db, "carol", time="06:00")
+    _v = setup_user(db, "carol", time="06:00")
     assert service.dispatch_due(db, utc(20, 0))["planned"] == 0
     assert [r.user_id for r in rows(db)] == [u.id]
 
 
 def test_disabled_push_disabled_channel_and_inactive_user_send_nothing(db, net):
-    off = setup_user(db, "off", enabled=False)
-    nochan = setup_user(db, "nochan", channels={"webhook": {"enabled": False, "target": WEBHOOK}})
+    _off = setup_user(db, "off", enabled=False)
+    _nochan = setup_user(db, "nochan", channels={"webhook": {"enabled": False, "target": WEBHOOK}})
     gone = setup_user(db, "gone")
     gone.active = False
     db.commit()
@@ -202,8 +202,8 @@ def test_channels_are_independent(db, net, smtp):
 # ------------------------------------------------------------------------------------------------ isolation + content
 
 def test_each_user_only_gets_their_own_report_on_their_own_channels(db, net):
-    a = setup_user(db, "alice", channels={"webhook": {"enabled": True, "target": "https://hooks.example.com/alice-hook-1111"}}, titles=["Alice only story"])
-    b = setup_user(db, "bob", channels={"webhook": {"enabled": True, "target": "https://hooks.example.com/bob-hook-2222"}}, titles=["Bob only story"])
+    _a = setup_user(db, "alice", channels={"webhook": {"enabled": True, "target": "https://hooks.example.com/alice-hook-1111"}}, titles=["Alice only story"])
+    _b = setup_user(db, "bob", channels={"webhook": {"enabled": True, "target": "https://hooks.example.com/bob-hook-2222"}}, titles=["Bob only story"])
     net.on("https://hooks.example.com/", (200, {"ok": 1}))
     service.dispatch_due(db, utc(8, 0))
     by_url = {str(r.url): net.body(r)["text"] for r in net.requests}

@@ -1,5 +1,7 @@
 import os; os.environ.setdefault("NEWS_NO_MEDIA", "1")
-import unittest, linkdates, generate
+import unittest
+import linkdates
+import generate
 from unittest import mock
 
 
@@ -28,7 +30,7 @@ class LinkTests(unittest.TestCase):
         self.assertNotIn("stale_link", fresh); self.assertNotIn("stale_link", unknown)
 
     def test_seen_index(self):
-        import tempfile, json
+        import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory() as t, mock.patch.object(linkdates, "SEEN", Path(t) / "s.json"):
             linkdates.update_seen({"date": "2026-10-15", "items": [{"url": "https://ex.com/a?utm_source=x", "linked": "https://youtu.be/abcDEF123"}]})

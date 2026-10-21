@@ -17,7 +17,6 @@ import os
 import random
 import re
 import socket
-import ssl
 import sys
 import time
 import urllib.error
@@ -30,7 +29,7 @@ from html import unescape
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-UA = "news-daily-collect/0.1 (personal news digest)"
+UA = "newsd-collect/0.1 (news digest)"
 MAX_BYTES = 1_500_000
 MAX_REDIRECTS = 3
 DEFAULT_TIMEOUT = 12

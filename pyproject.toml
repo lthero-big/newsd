@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "Self-hosted, multi-user AI news daily (successor of news-daily)"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "TBD" }
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = [
   "fastapi>=0.110",
   "uvicorn[standard]>=0.29",
@@ -20,14 +21,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.5"]
 postgres = ["psycopg[binary]>=3.1"]
 
 [project.scripts]
 newsd = "newsd.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -39,3 +40,19 @@ newsd = ["web/templates/*.html", "web/static/*", "migrations/script.py.mako", "l
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]  # test the checkout you are in, even when the venv was installed from another one
+
+[tool.ruff]
+line-length = 140
+extend-exclude = ["newsd/migrations/versions"]
+
+[tool.ruff.lint]
+# Correctness-focused: pyflakes (unused imports/variables, undefined names), syntax errors, import placement.
+# The code base deliberately uses compact one-liners (`a = 1; b = 2`, short lambdas, `l`/`s` loop names), so the
+# purely stylistic E701/E702/E731/E741 are off rather than reformatting 100+ lines.
+select = ["E4", "E7", "E9", "F"]
+ignore = ["E701", "E702", "E731", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# sys.path / env set-up has to run before these imports
+"tests/**" = ["E402"]
+"scripts/**" = ["E402"]

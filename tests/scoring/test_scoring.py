@@ -89,11 +89,11 @@ def test_module_group_total_and_topic_caps(db):
     words = [("ships faster inference kernels", "adds vision support", "tops coding leaderboard"),
              ("license changes explained", "runs on phones now", "gets tool calling"),
              ("raises new funding round", "releases tiny variant", "beats rivals on math")]
-    llm = [p.item(f"{name} {words[j][i]}", hours=i + 0.1 * j)
+    _llm = [p.item(f"{name} {words[j][i]}", hours=i + 0.1 * j)
            for j, name in enumerate(["Qwen", "Llama", "Mistral"]) for i in range(3)]
-    video = [p.item(t, hours=5 + i) for i, t in enumerate(["Sora makes music videos", "Sora pricing drops",
+    _video = [p.item(t, hours=5 + i) for i, t in enumerate(["Sora makes music videos", "Sora pricing drops",
                                                            "Sora hits Android"])]
-    hn = [p.item(t, source="plugin:hn", src_kind="plugin", extra={"points": 300})
+    _hn = [p.item(t, source="plugin:hn", src_kind="plugin", extra={"points": 300})
           for t in ("Show HN: Qwen in the terminal", "Ask HN: Llama for local search?")]
     # group cap: LLM group in module "news" max 3; module cap: news max 5; total 6; topic cap 2 (default)
     u = p.user("frank", interest=["Qwen", "Llama", "Mistral", "Sora"],

@@ -62,7 +62,7 @@ def parse_item(it: dict, handle: str) -> dict | None:
 def fetch(base: str, key: str, handle: str, timeout: int) -> list[dict]:
     route = f"/twitter/user/{urllib.parse.quote(handle)}/excludeReplies=1&includeRts=0"
     url = f"{base}{route}?" + urllib.parse.urlencode({"key": key, "format": "json", "limit": 10})
-    req = urllib.request.Request(url, headers={"User-Agent": "news-daily-x/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "newsd-x/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read()).get("items") or []
 

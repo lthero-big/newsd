@@ -10,12 +10,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import delete, select
 
 from . import __version__
-from .auth import COOKIE, authenticate, client_ip, create_session, current_user, get_db, require_admin, require_user
+from .auth import COOKIE, authenticate, client_ip, create_session, get_db, require_admin, require_user
 from .db import init_db
 from .pages import render
-from .models import ApiToken, Invite, User, WebSession, now
+from .models import ApiToken, Invite, User, WebSession
 from .registration import REG_MODES, get_registration_mode, register_user, set_registration_mode
-from .security import hash_password, new_token, token_hash
+from .security import new_token, token_hash
 from .settings import get_settings
 
 

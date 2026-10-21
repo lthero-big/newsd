@@ -20,7 +20,7 @@ from .llm import keys as llm_keys
 from .llm.client import KEYLESS, PROVIDER_LABELS, PROVIDERS, base_url
 from .llm.profiles import all_profiles, get_picks
 from .marks import marked_items
-from .models import Invite, Issue, Keyword, Quota, Source, Subscription, User
+from .models import Issue, Keyword, Quota, Source, Subscription
 from .onboarding import is_onboarded, preset_groups
 from .registration import get_registration_mode
 from .settings import get_settings

@@ -19,7 +19,7 @@ from sqlalchemy import or_, select, update
 from ..models import Issue, PushDelivery, User, now
 from ..settings import get_settings
 from . import channels as ch
-from .digest import FLAVORS, build_digest, build_messages, sample_digest
+from .digest import build_digest, build_messages, sample_digest
 from .prefs import CHANNELS, ChannelConfig, enabled_channels, load_channel, user_schedule
 
 log = logging.getLogger("newsd.push")

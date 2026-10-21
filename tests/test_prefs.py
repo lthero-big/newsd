@@ -89,7 +89,6 @@ def test_legacy_create_all_db_is_stamped(tmp_path, monkeypatch):
     from newsd.db import Base, get_engine, init_db, reset_engine
     from newsd.settings import reset_settings
     reset_settings(); reset_engine()
-    from newsd import models
     Base.metadata.create_all(get_engine(), tables=[t for n, t in Base.metadata.tables.items() if n in (
         "users", "invites", "sessions", "api_tokens", "login_failures", "user_settings", "global_settings")])
     init_db()

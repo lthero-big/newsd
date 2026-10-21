@@ -159,7 +159,6 @@ def test_settings_page_has_the_channel_forms_and_test_buttons(client):
 
 
 def test_admin_sees_deliveries_and_errors_are_escaped(client, net):
-    from newsd.cli import main
     register(client, "alice")
     net.on(WEBHOOK, (500, "<script>alert(1)</script>"))
     put(client, {"webhook": {"enabled": True, "target": WEBHOOK}})

@@ -14,7 +14,6 @@ never leaves this process (errors are scrubbed). ~44 RSSHub calls per run.
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import os
 import re
@@ -50,7 +49,7 @@ LIKES = re.compile(r"^\s*\[(\d+)\]")
 
 def get_feed(base: str, key: str, route: str, timeout: int = 90) -> list[dict]:
     url = f"{base}{route}?" + urllib.parse.urlencode({"key": key, "format": "json", "limit": 20})
-    req = urllib.request.Request(url, headers={"User-Agent": "news-daily-standby/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "newsd-standby/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read()).get("items") or []
 
