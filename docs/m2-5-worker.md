@@ -46,7 +46,7 @@ newsd worker runs [--limit 10]          # 最近的运行记录
 
 ## 测试
 
-`.venv/bin/pytest`：见下方合并后的总数（`tests/worker/` 新增 14 个）。网络和模型全部是模拟的（`httpx.MockTransport`）。
+`.venv/bin/pytest`：166 个通过（含 M3 合入后的全部测试；`tests/worker/` 新增 14 个）。网络和模型全部是模拟的（`httpx.MockTransport`）。
 
 - **一次 tick 端到端**：两个订阅同一个源的用户（alice 有模型 key、bob 没有），模拟 RSS + 模拟 OpenAI 端点；断言只请求一次源、两人都出了当期结果、alice 走模型（打分/翻译入库）而 bob 零模型请求、运行记录的阶段计数与落库内容（用新 session 读）一致。
 - **真 APScheduler 触发真 `tick()`**：后台调度线程到点触发，走完整个管线并写运行记录。
