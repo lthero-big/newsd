@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}订阅源 · newsd{% endblock %}
+{% block console %}
+<div class="page-head"><div class="row sp wrap-r"><div><div class="kicker"><span class="dot"></span>Sources</div><h1 class="display">订阅<em>源</em></h1>
+<p>按类别管理：X、Reddit、Hacker News、RSS、GitHub、Hugging Face、arXiv。每个类别下可以建自己的<b>分区</b>（如「中文」「英文」「特别关注」）；拖动可以调整<b>类别</b>和<b>分区</b>的顺序、把源拖到别的分区；分区可整体开关，<b>特别关注</b>分区里的源每条都推、不受配额限制，也不会因你的反馈降权。</p></div>
+<button class="btn primary" id="addSrc" type="button">＋ 添加源</button></div></div>
+<div class="src-layout"><nav class="cat-list" role="tablist" aria-label="源类别" id="cats"></nav><div id="pane"><p class="muted">加载中…</p></div></div>
+<p class="muted" style="font-size:13px;margin-top:18px">已订阅 {{ n_subs }} 个源。也可以 <a href="/welcome" style="color:var(--accent)">按兴趣一键订阅</a>，或 <button class="linkish" id="applyDefault" type="button">套用推荐订阅</button>。</p>
+
+<div class="overlay" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dT"><div class="modal">
+ <header><h3 id="dT">添加源</h3><button class="btn ghost icon" data-close type="button" aria-label="关闭">✕</button></header>
+ <div class="body">
+  <div id="dStep1"><div class="lbl muted" style="font-size:13px;margin-bottom:8px">1 · 类别</div><div class="cat-cards" id="dCats"></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0"></div>
+  <div class="lbl muted" style="font-size:13px;margin-bottom:10px" id="dL2">2 · 从源目录里选</div>
+  <div id="dPick"><div class="field"><input class="input" id="dQ" type="search" placeholder="搜索名称或地址…" autocomplete="off" aria-label="搜索源目录"></div><div class="pick-list" id="dList" role="listbox" aria-label="可添加的源"></div>
+  <span class="hint">源目录由管理员维护；没有想要的源可以请管理员添加。</span></div>
+  <div id="dEditName" hidden><b id="dName"></b><div class="muted" id="dDesc" style="font-size:13px"></div></div>
+  <div class="lbl muted" style="font-size:13px;margin:14px 0 10px" id="dL3">3 · 放进分区</div>
+  <div class="field"><div class="input-row"><select class="input" id="dSec" aria-label="分区"></select><input class="input" id="dNewSec" maxlength="64" placeholder="或新建分区名，如：特别关注" aria-label="新建分区名"></div><span class="hint">分区只属于当前类别；新建的分区排在最后。</span></div>
+  <div class="field"><label for="dW">权重</label><select class="input" id="dW" style="width:auto"><option value="0">0 · 普通</option><option value="1">1 · 多推（×1.3）</option><option value="2">2 · 强推（×1.6）</option></select></div>
+  <div class="testbox" id="dTest"></div>
+ </div>
+ <footer><button class="btn" id="dTry" type="button">看最近 3 条</button><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="dSave" type="button">添加</button></footer>
+</div></div>
+<div class="overlay" id="zdlg" role="dialog" aria-modal="true" aria-labelledby="zT"><div class="modal sm">
+ <header><h3 id="zT">新建分区</h3><button class="btn ghost icon" data-close type="button" aria-label="关闭">✕</button></header>
+ <div class="body"><div class="field"><label for="zName">分区名称</label><input class="input" id="zName" maxlength="64" placeholder="例：中文 / 英文 / 特别关注"></div>
+ <label class="row" style="gap:10px;font-size:14px"><button class="switch" type="button" role="switch" aria-checked="false" id="zSpecial" aria-label="设为特别关注"></button>设为特别关注（不受配额限制）</label></div>
+ <footer><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="zSave" type="button">新建</button></footer>
+</div></div>
+{% endblock %}
+{% block script %}<script>window.ND_ZONES={{ zones|tojson }};</script><script src="/static/v2/dnd.js?v={{ asset_v }}"></script><script src="/static/v2/sources.js?v={{ asset_v }}"></script>{% endblock %}

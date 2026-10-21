@@ -93,8 +93,9 @@ def test_profiles_api_and_settings_page(client):
     assert client.put("/api/me/profiles", json=[{"name": "research", "threshold": 11}]).status_code == 422
     assert client.put("/api/me/profiles", json=[{"name": "research"}, {"name": "research"}]).status_code == 400
 
-    page = client.get("/settings")
-    assert page.status_code == 200 and "测试连接" in page.text and "/api/me/llm/providers/test" in page.text and "Anthropic" in page.text
+    page = client.get("/models")
+    assert page.status_code == 200 and "测试连接" in page.text and "Anthropic" in page.text and "AI 内容类别" in page.text
+    assert "/api/me/llm/providers/test" in client.get("/static/v2/models.js").text
     assert {p["provider"] for p in client.get("/api/llm/providers").json()} >= {
         "openai", "anthropic", "gemini", "deepseek", "tongyi", "doubao", "ollama"}
     client.cookies.clear()

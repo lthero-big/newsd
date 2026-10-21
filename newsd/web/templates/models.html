@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}模型 · newsd{% endblock %}
+{% block console %}
+<div class="page-head"><div class="kicker"><span class="dot"></span>Models</div><h1 class="display"><em>模型</em></h1>
+<p>可同时添加多个 provider。启用的按优先级排序：第一个是<b>主用</b>，其余是<b>备份</b>，主用失败（重试后仍失败）时按顺序自动切换。没有可用模型时日报照常生成，只是不做 AI 打分、语义去重和翻译。</p></div>
+<section class="card">
+ <div class="row sp wrap-r"><div><b>故障切换链</b><div class="muted" style="font-size:13px">按当前优先级实时预览；拖动下方卡片或用 ↑↓ 调整</div></div>
+  <div class="row wrap-r" id="opts"><label class="row" style="gap:8px;font-size:13px">失败重试 <select class="input" style="width:auto;padding:5px 10px" id="retry">{% for n in [0, 1, 2, 3] %}<option value="{{ n }}"{% if n == llm_view.options.retries %} selected{% endif %}>{{ n }} 次</option>{% endfor %}</select></label>
+  <label class="row" style="gap:8px;font-size:13px">超时 <select class="input" style="width:auto;padding:5px 10px" id="timeout">{% for n in [30, 60, 120] %}<option value="{{ n }}"{% if n == llm_view.options.timeout %} selected{% endif %}>{{ n }} 秒</option>{% endfor %}</select></label>
+  <label class="row" style="gap:8px;font-size:13px">翻译成 <select class="input" style="width:auto;padding:5px 10px" id="lang">{% for l, n in langs %}<option value="{{ l }}"{% if l == llm_view.options.translate_to %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label></div></div>
+ <div class="failover" id="chain">{% for c in llm_view.chain %}{% if not loop.first %}<span class="arr">失败 →</span>{% endif %}<span class="node{% if loop.first %} p{% endif %}">{% if loop.first %}主用 · {% else %}备份 {{ loop.index0 }} · {% endif %}{{ c.name }}</span>{% else %}<span class="muted">没有启用的 provider — 日报生成将跳过 AI 摘要</span>{% endfor %}</div>
+</section>
+<div class="row sp" style="margin:26px 0 12px"><h2 class="sec" style="margin:0;flex:1">已添加的 Provider <span id="count" class="tag plain"></span></h2><button class="btn primary" id="addBtn" type="button">＋ 添加 Provider</button></div>
+<div class="prov-list" id="list" aria-live="polite"></div>
+<div class="callout" style="margin-top:18px"><span>ⓘ</span><span>API Key 用服务器主密钥加密保存，页面里只显示后 4 位；编辑时留空表示不修改。自定义 Base URL 只能是 http / https，普通用户不能填内网地址。</span></div>
+
+<h2 class="sec" id="profiles">AI 内容类别</h2><section class="card">
+<p class="muted" style="font-size:13px;margin:0 0 12px">勾选要看的类别。模型打分（0–10）达到阈值的条目才会进日报；阈值可以调。没有可用模型时这里不生效。</p>
+<div class="prof-list" id="profs">{% for p in profiles %}<div class="row sp wrap-r prof"><label class="row" style="gap:10px"><button class="switch" type="button" role="switch" aria-checked="{{ 'true' if p.name in picked else 'false' }}" data-p="{{ p.name }}" aria-label="启用类别 {{ p.title }}"></button><span><b>{{ p.title }}</b><small class="muted" style="display:block;font-size:12px">栏目：{{ p.sections|join('、') }} · 默认阈值 {{ p.threshold }}</small></span></label>
+<label class="row" style="gap:8px;font-size:13px">阈值 <input class="input" type="number" min="0" max="10" step="0.5" style="width:5.5em;padding:5px 10px" data-thr="{{ p.name }}" value="{{ picked.get(p.name, p.threshold) }}"></label></div>{% endfor %}</div>
+<div class="row" style="margin-top:12px"><button class="btn primary" id="saveProfs" type="button">保存类别</button></div></section>
+
+<div class="overlay" id="add" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="modal">
+ <header><h3 id="mTitle">添加 Provider</h3><button class="btn ghost icon" data-close type="button" aria-label="关闭">✕</button></header>
+ <div class="body">
+  <div id="presetBlock"><div class="lbl muted" style="font-size:13px;margin-bottom:4px">1 · 选择预设（自动带出 Base URL 与常用模型）</div><div id="presets">{% for rid, rname in llm_regions %}<div class="region-label">{{ rname }}</div><div class="preset-grid">{% for p in llm_presets if p.region == rid %}<button type="button" class="preset" data-p="{{ p.id }}" aria-pressed="false"><span class="logo-tile" style="--c:{{ p.color }}">{{ p.short }}</span>{{ p.name }}</button>{% endfor %}</div>{% endfor %}</div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0"></div>
+  <div class="lbl muted" style="font-size:13px;margin-bottom:10px">2 · 连接信息</div>
+  <div class="field"><label for="fName">显示名称</label><input class="input" id="fName" maxlength="64" placeholder="例如：DeepSeek 主力"></div>
+  <div class="field"><label for="fUrl">Base URL</label><input class="input mono" id="fUrl" maxlength="512" placeholder="https://…/v1" autocomplete="off"><span class="hint">选预设后自动填入，可改成自建网关 / 代理地址。</span></div>
+  <div class="field"><label for="fModel">模型</label><div class="input-row"><select class="input" id="fModelSel" aria-label="常用模型"></select><input class="input mono" id="fModel" maxlength="128" placeholder="或手填模型名"></div><span class="hint">下拉选常用模型，也可直接手填任意模型 ID（手填优先）。</span></div>
+  <div class="field"><label for="fKey">API Key</label><div class="input-row"><input class="input mono" id="fKey" type="password" placeholder="sk-…" autocomplete="off"><button class="btn" type="button" id="eye">显示</button></div><span class="hint" id="keyHint">保存后仅显示 ••••末四位。</span></div>
+  <div class="row sp" id="onRow"><div><b style="font-size:14px">创建后启用</b><div class="muted" style="font-size:12px">启用后加入故障切换链，排在末位</div></div><button class="switch" type="button" role="switch" aria-checked="true" id="fOn" aria-label="创建后启用"></button></div>
+  <div class="testbox" id="test"></div>
+ </div>
+ <footer><button class="btn" id="testBtn" type="button">测试连接</button><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="saveBtn" type="button">保存</button></footer>
+</div></div>
+{% endblock %}
+{% block script %}<script>window.ND_LLM={presets:{{ llm_presets|tojson }},providers:{{ llm_view.providers|tojson }}};</script><script src="/static/v2/dnd.js?v={{ asset_v }}"></script><script src="/static/v2/models.js?v={{ asset_v }}"></script>{% endblock %}

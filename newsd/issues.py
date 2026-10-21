@@ -23,6 +23,7 @@ from .llm.process import _dedupe as ai_dedupe, _rerank as ai_rerank, _score_prof
 from .llm.profiles import all_profiles, get_picks
 from .llm.translate import translate_texts
 from .feedback import adjust_candidates, annotate
+from .zones import SPECIAL, apply_to_candidates as apply_zones, special_keys
 from .marks import user_marks
 from .models import Issue, IssueItem, ItemScore, PoolItem, User
 from .pool.collector import item_text, user_items
@@ -128,6 +129,7 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
                         by_id[dup].reason = f"duplicate-of:{x['id']}:semantic"
                 dropped += [c for c in kept if c.item_id not in keep_ids]
                 kept = [c for c in kept if c.item_id in keep_ids]
+        apply_zones(db, user_id, kept)
         adjust_candidates(db, user_id, kept)
         selected, d = cut(kept, caps)
         dropped += d
@@ -195,8 +197,10 @@ def _store(db, user_id, key, selected, dropped, tr, report, caps, since, now, n_
 
 # ------------------------------------------------------------------------------------------ read side
 
-def _item_dict(ii: IssueItem, p: PoolItem, srcs: dict, marks: dict) -> dict:
-    return {"rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
+def _item_dict(ii: IssueItem, p: PoolItem, srcs: dict, marks: dict, special: set | None = None) -> dict:
+    keys = [s.key for s in srcs.get(p.id, [])]
+    return {"source_section": SPECIAL if special and special & set(keys) else None,
+            "rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
               "summary": p.summary, "summary_translated": ii.summary_translated, "image": p.image, "author": p.author,
               "published_at": p.published_at.isoformat() if p.published_at else None, "module": ii.module,
               "group": ii.group_name, "score": ii.score, "rule_score": ii.rule_score, "llm_score": ii.llm_score,
@@ -212,7 +216,8 @@ def issue_view(db, issue: Issue) -> dict:
                       .where(IssueItem.issue_id == issue.id).order_by(IssueItem.rank)).all()
     srcs = item_sources(db, [p.id for _, p in rows])
     marks = user_marks(db, issue.user_id)
-    items = annotate(db, issue.user_id, [_item_dict(ii, p, srcs, marks) for ii, p in rows])
+    sp = special_keys(db, issue.user_id)
+    items = annotate(db, issue.user_id, [_item_dict(ii, p, srcs, marks, sp) for ii, p in rows])
     return {"key": issue.key, "ai": issue.ai, "model": issue.model, "created_at": issue.created_at.isoformat(),
             "updated_at": issue.updated_at.isoformat(), "stats": {k: v for k, v in (issue.stats or {}).items() if k != "dropped_items"},
             "items": items}
@@ -230,7 +235,8 @@ def item_cards(db, user_id: int, item_ids: list[int]) -> list[dict]:
         latest[p.id] = (ii, p, key)
     srcs = item_sources(db, list(latest))
     marks = user_marks(db, user_id)
-    out = [_item_dict(ii, p, srcs, marks) | {"key": key} for ii, p, key in (latest[i] for i in item_ids if i in latest)]
+    sp = special_keys(db, user_id)
+    out = [_item_dict(ii, p, srcs, marks, sp) | {"key": key} for ii, p, key in (latest[i] for i in item_ids if i in latest)]
     return annotate(db, user_id, out) if out else out
 
 

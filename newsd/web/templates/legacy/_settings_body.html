@@ -1,13 +1,10 @@
-<h2 class="sec" id="more">订阅、关键词、模型与推送</h2>
+<h2 class="sec" id="more">关键词、配额与推送</h2>
+<p class="meta">订阅源和模型在各自的页面：<a href="/sources">订阅源</a> · <a href="/models">模型</a>。</p>
 <p class="meta">以下所有设置只属于你自己（{{ user.username }}），不会影响其他用户。</p>
 
 
 
-<section class="panel"><h2>订阅源</h2>
-<p>勾选要订阅的信息源。<button type="button" id="apply-default">套用推荐订阅</button> <a href="/welcome">按兴趣一键订阅</a></p>
-<p class="status" id="sub-status" role="status"></p>
-{% for kind, rows in sources %}<h3>{{ kind }}</h3><div>{% for s in rows %}<label><input type="checkbox" data-source="{{ s.key }}"{% if s.subscribed %} checked{% endif %}> {{ s.name }}</label>{% endfor %}</div>{% endfor %}
-</section>
+
 
 <section class="panel"><h2>关键词</h2>
 <p>关注词：只保留命中的内容；加权词：命中的排前面；屏蔽词：命中的直接剔除。</p>
@@ -61,47 +58,4 @@
 
 <div><button class="primary">保存推送设置</button> <span class="status" id="push-status" role="status"></span></div></form></section>
 
-<section class="panel" id="models"><h2>模型</h2>
-<p>可以添加多个服务商（国内、国外、本地或自定义 OpenAI 兼容地址），按顺序组成故障切换链：主用失败（重试后仍失败）时自动换下一个。API Key 用服务器主密钥加密保存，保存后只显示末 4 位。没有可用模型时日报照常生成，只是不做 AI 打分、语义去重和翻译。</p>
-<p class="meta" id="llm-chain">故障切换链：{% if llm_view.chain %}{% for c in llm_view.chain %}<span class="tag">{% if loop.first %}主用{% else %}备份{{ loop.index0 }}{% endif %} · {{ c.name }}</span>{% if not loop.last %} → {% endif %}{% endfor %}{% else %}<span>未启用任何模型</span>{% endif %}</p>
-<div class="prov-list" id="prov-list">{% for p in llm_view.providers %}
-<div class="prov{% if not p.enabled %} off{% endif %}" data-prov="{{ p.id }}" draggable="true">
-<span class="prov-badge" style="background: {{ p.color }}">{{ p.short }}</span>
-<div class="prov-main"><b>{{ p.name }}</b> <small class="meta-inline">{{ p.preset_name }} · {{ p.model }}</small>
-<div class="meta"><span>{{ p.base_url or '（未设置地址）' }}</span>{% if p.needs_key %}<span>{% if p.has_key %}Key …{{ p.key_last4 or '' }}{% elif p.key_unreadable %}Key 无法解密，请重新填写{% else %}未填 Key{% endif %}</span>{% endif %}
-{% if p.last_test %}<span data-test-result="{{ p.id }}">{% if p.last_test.ok %}✓ {{ p.last_test.latency_ms }} ms{% else %}✗ {{ p.last_test.error }}{% endif %}</span>{% else %}<span data-test-result="{{ p.id }}"></span>{% endif %}</div></div>
-<div class="prov-actions">
-<label class="switch" title="启用"><input type="checkbox" data-enable="{{ p.id }}"{% if p.enabled %} checked{% endif %}> 启用</label>
-<button type="button" data-move="up" aria-label="上移">↑</button><button type="button" data-move="down" aria-label="下移">↓</button>
-<button type="button" data-test-prov="{{ p.id }}">测试</button> <button type="button" data-edit="{{ p.id }}">编辑</button> <button type="button" data-del-prov="{{ p.id }}">删除</button>
-</div></div>{% endfor %}</div>
-<p><button type="button" class="primary" id="prov-add">＋ 添加模型</button></p>
-<form id="prov-form" hidden>
-<input type="hidden" name="id">
-<label>显示名称 <input name="name" maxlength="64" placeholder="例如：DeepSeek 主用"></label>
-<label>预设 <select name="preset">{% for rid, rname in llm_regions %}<optgroup label="{{ rname }}">{% for p in llm_presets if p.region == rid %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
-<label>Base URL <input name="base_url" maxlength="512" placeholder="https://…" autocomplete="off"></label>
-<small class="meta">选预设后自动填入，可改成自建网关 / 代理地址。普通用户不能填内网地址。</small>
-<label>模型 <input name="model" list="prov-models" maxlength="128" required placeholder="下拉选择或直接输入"></label><datalist id="prov-models"></datalist>
-<label>API Key <input name="api_key" type="password" autocomplete="off"></label>
-<label><input type="checkbox" name="enabled" checked> 启用</label>
-<div><button type="button" id="prov-test">测试连接</button> <button class="primary">保存</button> <button type="button" id="prov-cancel">取消</button></div>
-</form>
-<p class="status" id="llm-status" role="status"></p>
-<form id="llm-opts" class="row">
-<label>失败重试 <select name="retries">{% for n in [0, 1, 2, 3] %}<option value="{{ n }}"{% if n == llm_view.options.retries %} selected{% endif %}>{{ n }} 次</option>{% endfor %}</select></label>
-<label>超时 <select name="timeout">{% for n in [30, 60, 120] %}<option value="{{ n }}"{% if n == llm_view.options.timeout %} selected{% endif %}>{{ n }} 秒</option>{% endfor %}</select></label>
-<label>翻译成 <select name="translate_to">{% for l, n in langs %}<option value="{{ l }}"{% if l == llm_view.options.translate_to %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
-<button>保存选项</button> <span class="status" id="opts-status" role="status"></span>
-</form>
-</section>
-<section class="panel"><h2>内容类别</h2>
-<p>勾选要看的类别。分数（0–10）达到阈值的条目才会进日报；阈值可以调。</p>
-<form id="profiles">
-{% for p in profiles %}<p><label><input type="checkbox" name="pick" value="{{ p.name }}"{% if p.name in picked %} checked{% endif %}> {{ p.title }}</label>
-<label>阈值 <input type="number" name="thr-{{ p.name }}" min="0" max="10" step="0.5" value="{{ picked.get(p.name, p.threshold) }}"></label>
-<small>默认 {{ p.threshold }}；栏目：{{ p.sections|join('、') }}</small></p>{% endfor %}
-<button type="submit">保存类别</button>
-</form>
-<p id="prof-status" role="status"></p>
-</section>
+

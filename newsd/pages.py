@@ -23,11 +23,12 @@ from .llm.client import base_url
 from .llm.presets import REGIONS, VISIBLE
 from .llm.profiles import all_profiles, get_picks
 from .marks import trash_count
-from .models import Issue, IssueItem, ItemFeedback, ItemMark, PoolItem, Keyword, Quota, Source, Subscription
+from .models import Issue, IssueItem, ItemFeedback, ItemMark, PoolItem, Keyword, Quota, Subscription
 from .onboarding import is_onboarded, preset_groups
 from .registration import get_registration_mode
 from .settings import get_settings
 from .push.prefs import WEBHOOK_TYPES, get_push
+from .zones import view as zone_view
 from .userprefs import DEFAULT_PALETTE, PALETTES, THEME_COOKIE, THEMES, get_palette, get_ui, normalize_theme
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "web" / "templates"))
@@ -36,9 +37,10 @@ MODULES = (("model", "模型新闻", "新模型、版本发布与榜单"), ("ope
            ("community", "社区新闻", "HN、Reddit 与 X 上的讨论"), ("news", "资讯", "媒体与博客报道"))
 MODULE_NAMES = {m: label for m, label, _sub in MODULES}
 READ_NAV = (("/", "日报", "issue", "◐"), ("/favorites", "收藏", "favorites", "♡"), ("/calendar", "归档", "calendar", "▦"))
-# (group, [(href, label, page key)], admin only). Item 3b / 3c split 订阅源 / 模型 / 管理 into their own pages.
-CONSOLE_NAV = (("个人", (("/settings", "偏好与主题", "settings"), ("/settings#learn", "学到的偏好", "learn"),
-                         ("/settings#more", "订阅、模型与推送", "more"), ("/settings#acct", "账号", "acct")), False),
+# (group, [(href, label, page key)], admin only). 3b: 订阅源 / 模型 have their own pages; 3c splits 管理.
+CONSOLE_NAV = (("个人", (("/sources", "订阅源", "sources"), ("/models", "模型", "models"), ("/settings", "偏好与主题", "settings"),
+                         ("/settings#learn", "学到的偏好", "learn"), ("/settings#more", "关键词、配额与推送", "more"),
+                         ("/settings#acct", "账号", "acct")), False),
                ("管理", (("/admin", "概览", "admin"),), True))
 WEEK = "一二三四五六日"
 _STATIC = Path(__file__).parent / "web" / "static" / "v2"
@@ -207,12 +209,6 @@ def welcome_page(request: Request, user=Depends(current_user), db=Depends(get_db
 def settings_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
     if user is None:
         return login_redirect()
-    llm_presets = [{**p.public(), "base_url": base_url(p.id)} for p in VISIBLE]
-    picked = {p["name"]: p["threshold"] for p in get_picks(db, user.id)}
-    subscribed = set(db.scalars(select(Subscription.source_id).where(Subscription.user_id == user.id, Subscription.enabled.is_(True))))
-    by_kind: dict[str, list] = {}
-    for s in db.scalars(select(Source).where(Source.enabled.is_(True)).order_by(Source.kind, Source.key)):
-        by_kind.setdefault(KIND_LABELS.get(s.kind, s.kind), []).append({"key": s.key, "name": s.name, "subscribed": s.id in subscribed})
     kws: dict[str, list] = {"interest": [], "boost": [], "block": []}
     for k in db.scalars(select(Keyword).where(Keyword.user_id == user.id).order_by(Keyword.term)):
         kws.setdefault(k.kind, []).append({"id": k.id, "term": k.term, "weight": k.weight})
@@ -220,11 +216,30 @@ def settings_page(request: Request, user=Depends(current_user), db=Depends(get_d
               for q in db.scalars(select(Quota).where(Quota.user_id == user.id).order_by(Quota.module, Quota.group_name))]
     learn = learn_settings(db, user.id)
     weights = {"delete": W_DELETE, "dislike": W_DISLIKE, **FEATURE_W, "half_life": HALF_LIFE_DAYS}
-    return render(request, "settings.html", user, db, area="console", page="settings", learn=learn, w=weights, llm_presets=llm_presets,
-                  llm_regions=REGIONS, llm_view=llm_keys.overview(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
-                  profiles=list(all_profiles().values()), picked=picked, palettes=PALETTES, sources=list(by_kind.items()),
+    return render(request, "settings.html", user, db, area="console", page="settings", learn=learn, w=weights, palettes=PALETTES,
                   keywords=kws, quotas=quotas, push=get_push(db, user.id), webhook_types=WEBHOOK_TYPES,
                   smtp_ready=bool(get_settings().smtp_host))
+
+
+@router.get("/sources", response_class=HTMLResponse)
+def sources_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    """订阅源 (DEPTAI-216 3b): categories, zones and the sources in them; the page script talks to /api/me/zones."""
+    if user is None:
+        return login_redirect()
+    return render(request, "sources.html", user, db, area="console", page="sources", zones=zone_view(db, user.id),
+                  n_subs=db.scalar(select(func.count()).select_from(Subscription).where(Subscription.user_id == user.id)) or 0)
+
+
+@router.get("/models", response_class=HTMLResponse)
+def models_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
+    """模型 (DEPTAI-216 3b): providers in failover order, options and the AI content categories."""
+    if user is None:
+        return login_redirect()
+    llm_presets = [{**p.public(), "base_url": base_url(p.id)} for p in VISIBLE]
+    picked = {p["name"]: p["threshold"] for p in get_picks(db, user.id)}
+    return render(request, "models.html", user, db, area="console", page="models", llm_presets=llm_presets,
+                  llm_regions=REGIONS, llm_view=llm_keys.overview(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
+                  profiles=list(all_profiles().values()), picked=picked)
 
 
 @router.get("/admin", response_class=HTMLResponse)

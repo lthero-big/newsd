@@ -41,9 +41,28 @@ body.tfade *{transition:background-color .4s,color .4s,border-color .4s!importan
 .legacy a{color:var(--accent)}
 /* phones: grid tracks must be allowed to shrink below their content (long headlines, the 440px calendar) */
 .nd-hero>*,.cal-layout>*,.fav-head>*,.console>main,.legacy fieldset{min-width:0}
+.legacy code,.legacy pre,.legacy .muted{overflow-wrap:anywhere;word-break:break-word}.legacy pre{white-space:pre-wrap}.legacy input,.legacy select,.legacy textarea{max-width:100%}
 .nd-head{max-width:100%;overflow-wrap:anywhere}
 @media (max-width:900px){.nd-hero,.ed,.cal-layout,.settings{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:760px){.fav-head{grid-template-columns:minmax(0,1fr)}.ical,.ical .calbox{max-width:100%}
  .mcal{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.mcal .d{min-height:44px;padding:5px}
  .console>main{overflow-x:auto}}
 .ed>*,.eside,.module{min-width:0}.card.item p,.card.item h3,.card.item .t{overflow-wrap:anywhere}
+/* 3b: sources page — catalog picker in the add dialog, off zones, sources the admin disabled */
+.pick-list{display:grid;gap:6px;max-height:260px;overflow:auto;padding:2px}
+.cpick{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:0}
+.cpick b{font-size:14px;overflow-wrap:anywhere}.cpick small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.cpick:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
+.cpick.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.linkish{border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font:inherit}
+.modal.sm{max-width:440px}
+.sect.off>header h3{opacity:.55;text-decoration:line-through;text-decoration-thickness:1px}
+.sect.off .srow{opacity:.55}
+.srow.gone b{text-decoration:line-through}
+.srow>div:nth-child(2){min-width:0}.srow small{overflow-wrap:anywhere}
+@media (max-width:760px){.src-layout{grid-template-columns:minmax(0,1fr)}.src-layout>*{min-width:0}
+ .sect>header{flex-wrap:wrap;row-gap:6px}.srow{flex-wrap:wrap}}
+/* 3b: models page */
+.prov .handle{border:0;background:none;padding:0;color:var(--muted);cursor:grab;font-size:16px;line-height:1}
+.prov .pbody{min-width:0}.prov .sub span{overflow-wrap:anywhere}
+.prof-list .prof{padding:10px 0;border-bottom:1px solid var(--line)}.prof-list .prof:last-child{border-bottom:0}

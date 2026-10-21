@@ -334,9 +334,11 @@ def test_settings_page_renders_chain(client):
     _user(client, "pg")
     client.post("/api/me/llm/providers", json={"preset": "deepseek", "model": "pg-model-a", "api_key": KEY, "name": "主力"})
     client.post("/api/me/llm/providers", json={"preset": "xai", "model": "grok-4", "api_key": KEY2, "name": "后备"})
-    t = client.get("/settings").text
-    assert "pg-model-a" in t and "主用 · 主力" in t and "备份1 · 后备" in t and "…1234" in t and KEY not in t and KEY2 not in t
-    assert "xAI Grok" in t and "通义千问" in t and "/api/me/llm/order" in t and "失败重试" in t
+    t = client.get("/models").text
+    assert "pg-model-a" in t and "主用 · 主力" in t and "备份 1 · 后备" in t and '"key_last4": "1234"' in t and KEY not in t and KEY2 not in t
+    assert "xAI Grok" in t and "通义千问" in t and "失败重试" in t and 'href="/models" data-k="models" aria-current="page"' in t
+    assert "/api/me/llm/order" in client.get("/static/v2/models.js").text
+    assert "pg-model-a" not in client.get("/settings").text  # no longer on the settings page
 
 
 def test_migration_moves_v1_config(tmp_path, monkeypatch):

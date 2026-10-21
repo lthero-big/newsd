@@ -52,13 +52,15 @@ def test_settings_pages_are_independent(client):
     a = client.get("/settings")
     assert a.status_code == 200
     assert "alice-secret-block" in a.text and "alice@example.com" in a.text and "07:30" in a.text
-    assert 'value="11"' in a.text and 'data-theme="arch-crt"' in a.text and "alice-model" in a.text
-    assert "sk-alice-12345678" not in a.text and "5678" in a.text  # only the last 4 digits ever reach the page
+    assert 'value="11"' in a.text and 'data-theme="arch-crt"' in a.text
+    m = client.get("/models")  # 3b: models have their own page
+    assert m.status_code == 200 and "alice-model" in m.text
+    assert "sk-alice-12345678" not in m.text and "5678" in m.text  # only the last 4 digits ever reach the page
 
     login(client, "bob")
     b = client.get("/settings")
     assert b.status_code == 200
-    assert "alice-secret-block" not in b.text and "alice@example.com" not in b.text and "alice-model" not in b.text
+    assert "alice-secret-block" not in b.text and "alice@example.com" not in b.text and "alice-model" not in client.get("/models").text
     assert 'data-theme="arch-editorial"' in b.text and 'value="11"' not in b.text
     assert any(k["term"] == "Sora" for k in client.get("/api/me/keywords").json())
     assert client.get("/api/me/quotas").json() == [] and client.get("/api/me/push").json()["enabled"] is False

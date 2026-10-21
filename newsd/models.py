@@ -133,6 +133,27 @@ class Subscription(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # whitelisted keys only (see newsd.prefs)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    # DEPTAI-216 (3b): the zone (分区) the source sits in on the sources page, its place there and a weight
+    # 0 normal / 1 more (x1.3) / 2 much more (x1.6). zone_id NULL = not placed yet (newsd.zones assigns a default).
+    zone_id: Mapped[int | None] = mapped_column(ForeignKey("source_zones.id", ondelete="SET NULL"), nullable=True, index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    weight: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SourceZone(Base):
+    """DEPTAI-216 (3b): a user's zone inside one source category (x / reddit / hn / rss / github / hf / arxiv), e.g.
+    中文 / 英文 / 特别关注. A disabled zone turns all of its sources off; a ``special`` zone skips every quota and
+    is never down-ranked by learned feedback."""
+    __tablename__ = "source_zones"
+    __table_args__ = (UniqueConstraint("user_id", "category", "name"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    category: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(64))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    special: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
 class Keyword(Base):

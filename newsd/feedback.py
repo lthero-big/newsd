@@ -181,7 +181,7 @@ def adjust_candidates(db, user_id: int, cands) -> None:
     for c in cands:
         k0 = c.source_keys[0] if c.source_keys else None
         feats = features_from(k0, names.get(k0), c.matched)
-        p, _ = penalty(feats, pmap)
+        p, _ = penalty(feats, pmap, SPECIAL if (c.detail or {}).get("special") else None)
         b = sum(bmap.get(f"{kind}:{key}", 0.0) for kind, key, _ in feats)
         if p or b:
             c.score = round(max(0.0, c.score - 12.0 * min(p, 3.0) + 6.0 * min(b, 2.0)), 2)

@@ -255,22 +255,28 @@ def group_of(c: Candidate, caps: Caps) -> dict | None:
 
 
 def cut(cands: list[Candidate], caps: Caps) -> tuple[list[Candidate], list[Candidate]]:
-    """Greedy by score: topic cap, then group cap, then module cap, then total cap."""
+    """Greedy by score: topic cap, then group cap, then module cap, then total cap. Items from a 特别关注 zone
+    (``detail["special"]``, DEPTAI-216 3b) are always kept and do not count against any cap."""
     kept, dropped = [], []
     per_topic: dict[str, int] = {}
     per_group: dict[tuple, int] = {}
     per_module: dict[str, int] = {}
+    n_special = 0
     for c in sorted(cands, key=lambda c: (-c.score, -c.item_id)):
         g = group_of(c, caps)
         gk = (g["module"], g["group"]) if g else None
         c.group = g["group"] if g else ""
+        if (c.detail or {}).get("special"):
+            kept.append(c)
+            n_special += 1
+            continue
         if c.topic and caps.topic and per_topic.get(c.topic, 0) >= caps.topic:
             c.reason = f"topic-cap:{c.topic}"
         elif g and per_group.get(gk, 0) >= g["max_items"]:
             c.reason = f"group-cap:{c.module}/{g['group']}"
         elif c.module in caps.modules and per_module.get(c.module, 0) >= caps.modules[c.module]:
             c.reason = f"module-cap:{c.module}"
-        elif len(kept) >= caps.total:
+        elif len(kept) - n_special >= caps.total:
             c.reason = "total-cap"
         if c.reason:
             dropped.append(c)

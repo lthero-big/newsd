@@ -84,12 +84,14 @@ def subscribed_sources(db) -> list[Source]:
 
 
 def user_items(db, user_id: int, since: datetime | None = None, limit: int = 500) -> list[PoolItem]:
-    """Pool items carried by any source the user is subscribed to (the per-user view of the shared pool)."""
+    """Pool items carried by any source the user is subscribed to (the per-user view of the shared pool).
+    Sources in a disabled zone (DEPTAI-216 3b) count as off."""
+    from ..zones import active_filter
     stmt = (
         select(PoolItem)
         .join(PoolItemSource, PoolItemSource.item_id == PoolItem.id)
         .join(Subscription, Subscription.source_id == PoolItemSource.source_id)
-        .where(Subscription.user_id == user_id, Subscription.enabled.is_(True))
+        .where(Subscription.user_id == user_id, Subscription.enabled.is_(True), active_filter())
         .distinct()
         .order_by(PoolItem.first_seen_at.desc())
         .limit(limit)
