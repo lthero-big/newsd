@@ -23,7 +23,9 @@ from .marks import marked_items
 from .models import Invite, Issue, Keyword, Quota, Source, Subscription, User
 from .onboarding import is_onboarded, preset_groups
 from .registration import get_registration_mode
-from .userprefs import PALETTES, THEME_COOKIE, get_palette, get_push
+from .settings import get_settings
+from .push.prefs import WEBHOOK_TYPES, get_push
+from .userprefs import PALETTES, THEME_COOKIE, get_palette
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "web" / "templates"))
 router = APIRouter()
@@ -151,7 +153,8 @@ def settings_page(request: Request, user=Depends(current_user), db=Depends(get_d
     return render(request, "settings.html", user, db, nav="settings", page="settings", providers=providers,
                   llm=llm_keys.public_settings(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
                   profiles=list(all_profiles().values()), picked=picked, palettes=PALETTES, sources=list(by_kind.items()),
-                  keywords=kws, quotas=quotas, push=get_push(db, user.id))
+                  keywords=kws, quotas=quotas, push=get_push(db, user.id), webhook_types=WEBHOOK_TYPES,
+                  smtp_ready=bool(get_settings().smtp_host))
 
 
 @router.get("/admin", response_class=HTMLResponse)
@@ -162,7 +165,9 @@ def admin_page(request: Request, user=Depends(current_user), db=Depends(get_db))
         raise HTTPException(403, "admin only")
     from .admin import admin_invites, admin_users
     from .admin_runs import recent_runs
+    from .push.api import recent_deliveries
     from .worker import run_view
     return render(request, "admin.html", user, db, nav="admin", page="admin", mode=get_registration_mode(db),
                   invites=admin_invites(user, db), users=admin_users(user, db), sources=source_rows(db, 30), days=30,
-                  runs=admin_runs(30, user, db), worker_runs=[run_view(r) for r in recent_runs(db, 20)])
+                  runs=admin_runs(30, user, db), worker_runs=[run_view(r) for r in recent_runs(db, 20)],
+                  push_deliveries=recent_deliveries(db, 50))

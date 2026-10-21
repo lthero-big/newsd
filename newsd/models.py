@@ -343,3 +343,28 @@ class WorkerRun(Base):
     stages: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"stage","status","started_at","finished_at","counts","error"}]
     users: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"user","status","items_in","items_out","ai","error",...}]
     errors: Mapped[list | None] = mapped_column(JSON, nullable=True)  # short strings, capped
+
+
+# ---------------------------------------------------------------- M4: push delivery records
+
+class PushDelivery(Base):
+    """One delivery of one issue (or a test message) to one channel. ``retrying`` rows are picked up again by the
+    dispatcher once ``next_attempt_at`` passes; ``progress`` counts messages already sent so a retry of a
+    summary-and-items push resumes instead of re-sending. ``error`` never contains secrets (redacted before storing)."""
+    __tablename__ = "push_deliveries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="scheduled")  # scheduled | test
+    channel: Mapped[str] = mapped_column(String(16))  # email | telegram | webhook
+    issue_key: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending | retrying | ok | failed | skipped
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=1)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    log: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"n","at","ok","sent","error"}] per attempt

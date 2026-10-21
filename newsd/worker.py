@@ -208,8 +208,10 @@ def tick(trigger: str = "schedule") -> dict | None:
     s = get_settings()
     db = SessionLocal()
     try:
-        return run_pipeline_sync(db, trigger=trigger, tz=parse_tz(s.worker_tz), extract=s.worker_extract,
-                                 since_hours=s.worker_since_hours)
+        rep = run_pipeline_sync(db, trigger=trigger, tz=parse_tz(s.worker_tz), extract=s.worker_extract,
+                                since_hours=s.worker_since_hours)
+        push_tick(db)  # reports are ready now: deliver whatever is already due instead of waiting for the next minute
+        return rep
     except Exception:  # noqa: BLE001
         log.exception("worker tick crashed")
         return None
@@ -217,10 +219,32 @@ def tick(trigger: str = "schedule") -> dict | None:
         db.close()
 
 
-def build_scheduler(blocking: bool = True, job=tick):
+def push_tick(db=None) -> dict | None:
+    """M4: send the deliveries that are due (and retries whose backoff has passed). Never raises. Runs every minute
+    and right after each pipeline run; the dispatcher is idempotent and lease-protected, so overlap is harmless."""
+    from .db import SessionLocal
+    from .push.service import dispatch_due
+    own = db is None
+    db = db or SessionLocal()
+    try:
+        rep = dispatch_due(db)
+        if rep["attempted"] or rep["planned"]:
+            log.info("push: %s", rep)
+        return rep
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        log.exception("push dispatch crashed")
+        return None
+    finally:
+        if own:
+            db.close()
+
+
+def build_scheduler(blocking: bool = True, job=tick, push_job=push_tick):
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.schedulers.blocking import BlockingScheduler
     from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
 
     s = get_settings()
     tz = parse_tz(s.worker_tz)
@@ -229,6 +253,9 @@ def build_scheduler(blocking: bool = True, job=tick):
         sched.add_job(job, CronTrigger(hour=hh, minute=mm, timezone=tz), id=f"pipeline-{hh:02d}:{mm:02d}",
                       name=f"daily pipeline {hh:02d}:{mm:02d} {s.worker_tz}", max_instances=1, coalesce=True,
                       misfire_grace_time=3600)
+    if push_job is not None:  # each user's own push time / retry backoff: checked every minute
+        sched.add_job(push_job, IntervalTrigger(minutes=1, timezone=tz), id="push-dispatch", name="push dispatch", max_instances=1,
+                      coalesce=True, misfire_grace_time=300)
     return sched
 
 

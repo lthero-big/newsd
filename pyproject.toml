@@ -38,3 +38,4 @@ newsd = ["web/templates/*.html", "web/static/*", "migrations/script.py.mako", "l
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # test the checkout you are in, even when the venv was installed from another one

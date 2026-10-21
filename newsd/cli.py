@@ -56,6 +56,12 @@ def main(argv=None) -> int:
     wr.add_argument("--no-extract", action="store_true"); wr.add_argument("--no-ai", action="store_true")
     wr.add_argument("--since-hours", type=float)
     wl = wsub.add_parser("runs", help="list recent runs"); wl.add_argument("--limit", type=int, default=10)
+    ps = sub.add_parser("push", help="push delivery (Telegram / e-mail / webhook)")
+    pssub = ps.add_subparsers(dest="pscmd", required=True)
+    pssub.add_parser("run", help="send what is due now (the worker does this every minute)")
+    pt = pssub.add_parser("test", help="send a sample message through a user's saved channel config")
+    pt.add_argument("username"); pt.add_argument("channel", choices=["email", "telegram", "webhook"])
+    pls = pssub.add_parser("list", help="recent delivery records"); pls.add_argument("--limit", type=int, default=20)
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
@@ -165,6 +171,34 @@ def main(argv=None) -> int:
                                            tz=worker.parse_tz(cfg.worker_tz))
             print(_json.dumps(rep, ensure_ascii=False, default=str))
             return 0 if rep["status"] != "failed" else 1
+        finally:
+            db.close()
+    if args.cmd == "push":
+        import json as _json
+        db = SessionLocal()
+        try:
+            from .models import User
+            from .push import service
+            if args.pscmd == "run":
+                print(_json.dumps(service.dispatch_due(db)))
+                return 0
+            if args.pscmd == "list":
+                from .push.api import recent_deliveries
+                for v in recent_deliveries(db, args.limit):
+                    print(f"#{v['id']} {v['status']:<8} {v['kind']:<9} {v['channel']:<8} user={v['user']} key={v['issue_key'] or '-'} "
+                          f"attempts={v['attempts']}/{v['max_attempts']} sent={v['progress']}/{v['total']} {v['error'] or ''}")
+                return 0
+            user = db.scalar(select(User).where(User.username == args.username))
+            if user is None:
+                print("no such user", file=sys.stderr)
+                return 1
+            try:
+                d = service.send_test(db, user, args.channel)
+            except service.PushRequestError as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+            print(d.status, d.error or "")
+            return 0 if d.status == "ok" else 1
         finally:
             db.close()
     if args.cmd == "initdb":

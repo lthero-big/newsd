@@ -202,7 +202,7 @@ def test_scheduler_registers_one_cron_job_per_time(db, monkeypatch):
     reset_settings()
     sched = worker.build_scheduler(blocking=False, job=lambda: None)
     jobs = sorted(sched.get_jobs(), key=lambda j: j.id)
-    assert [j.id for j in jobs] == ["pipeline-07:30", "pipeline-19:00"]
+    assert [j.id for j in jobs] == ["pipeline-07:30", "pipeline-19:00", "push-dispatch"]  # M4 adds the per-minute push dispatcher
     assert all(j.max_instances == 1 and j.coalesce for j in jobs)
     now = datetime(2026, 10, 20, 22, 0, tzinfo=timezone.utc)  # 06:00 Shanghai on the 21st
     nxt = jobs[0].trigger.get_next_fire_time(None, now)

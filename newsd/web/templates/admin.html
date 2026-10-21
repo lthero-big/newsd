@@ -42,6 +42,13 @@
 </details></td></tr>{% endfor %}
 </tbody></table></div></section>
 
+<section class="panel"><h2>推送记录</h2>
+<p class="meta">每次向各渠道推送一期日报（或设置页“发送测试”）的结果。状态：ok / retrying（等待退避后重试）/ failed（重试用尽或不可重试的错误）/ skipped。最近 {{ push_deliveries|length }} 条；错误信息已去掉令牌和地址。</p>
+{% if not push_deliveries %}<p class="meta">还没有推送记录。</p>{% endif %}
+<div class="scroll"><table><thead><tr><th>#</th><th>用户</th><th>渠道</th><th>类型</th><th>期</th><th>状态</th><th>尝试</th><th>已发 / 共</th><th>创建 (UTC)</th><th>下次重试</th><th>错误</th></tr></thead><tbody>
+{% for d in push_deliveries %}<tr><td>{{ d.id }}</td><td>{{ d.user }}</td><td>{{ d.channel }}</td><td>{{ d.kind }}</td><td>{{ d.issue_key or "-" }}</td><td><b>{{ d.status }}</b></td><td>{{ d.attempts }} / {{ d.max_attempts }}</td><td>{{ d.progress }} / {{ d.total }}</td><td>{{ d.created_at[:16] }}</td><td>{{ d.next_attempt_at[:16] if d.next_attempt_at else "" }}</td><td>{{ d.error or "" }}</td></tr>{% endfor %}
+</tbody></table></div></section>
+
 <section class="panel"><h2>运行记录</h2>
 <h3>用户日报</h3><div class="scroll"><table><thead><tr><th>用户</th><th>期</th><th>状态</th><th>候选 → 入选</th><th>模型</th><th>时间</th></tr></thead><tbody>
 {% for r in runs.issues %}<tr><td>{{ r.user }}</td><td>{{ r.key }}</td><td>{{ r.status }}</td><td>{{ r.items_in if r.items_in is not none else "-" }} → {{ r.items_out if r.items_out is not none else "-" }}</td><td>{{ r.model or r.ai }}</td><td>{{ r.updated_at[:16] }}</td></tr>{% endfor %}

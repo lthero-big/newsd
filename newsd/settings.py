@@ -30,6 +30,23 @@ class Settings:
     worker_run_on_start: bool = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_RUN_ON_START", "0") == "1")
     worker_extract: bool = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_EXTRACT", "1") != "0")
     worker_since_hours: float = field(default_factory=lambda: float(os.environ.get("NEWSD_WORKER_SINCE_HOURS", "26")))
+    # push (M4): SMTP is server-side; Telegram bot token may also be per user (see docs/m4-223-push.md)
+    public_url: str = field(default_factory=lambda: os.environ.get("NEWSD_PUBLIC_URL", "").rstrip("/"))
+    smtp_host: str = field(default_factory=lambda: os.environ.get("NEWSD_SMTP_HOST", ""))
+    smtp_port: int = field(default_factory=lambda: int(os.environ.get("NEWSD_SMTP_PORT", "587")))
+    smtp_user: str = field(default_factory=lambda: os.environ.get("NEWSD_SMTP_USER", ""))
+    smtp_password: str = field(default_factory=lambda: os.environ.get("NEWSD_SMTP_PASSWORD", ""))
+    smtp_from: str = field(default_factory=lambda: os.environ.get("NEWSD_SMTP_FROM", ""))
+    smtp_security: str = field(default_factory=lambda: os.environ.get("NEWSD_SMTP_SECURITY", "starttls"))  # starttls | ssl | none
+    telegram_bot_token: str = field(default_factory=lambda: os.environ.get("NEWSD_TELEGRAM_BOT_TOKEN", ""))  # default bot for users without their own
+    telegram_api_base: str = field(default_factory=lambda: os.environ.get("NEWSD_TELEGRAM_API_BASE", "https://api.telegram.org").rstrip("/"))
+    push_max_attempts: int = field(default_factory=lambda: int(os.environ.get("NEWSD_PUSH_MAX_ATTEMPTS", "4")))
+    push_backoff: str = field(default_factory=lambda: os.environ.get("NEWSD_PUSH_BACKOFF", "60,300,900"))  # seconds before retry 1, 2, ...
+    push_grace_hours: float = field(default_factory=lambda: float(os.environ.get("NEWSD_PUSH_GRACE_HOURS", "12")))
+    push_max_items: int = field(default_factory=lambda: int(os.environ.get("NEWSD_PUSH_MAX_ITEMS", "20")))  # per-item mode cap
+    push_item_delay: float = field(default_factory=lambda: float(os.environ.get("NEWSD_PUSH_ITEM_DELAY", "0.5")))
+    push_timeout: float = field(default_factory=lambda: float(os.environ.get("NEWSD_PUSH_TIMEOUT", "15")))
+    push_allow_private: bool = field(default_factory=lambda: os.environ.get("NEWSD_PUSH_ALLOW_PRIVATE", "0") == "1")
     login_max_failures: int = 3
     login_lock_minutes: int = 15
 

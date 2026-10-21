@@ -150,13 +150,16 @@ def test_theme_and_push_validation(client):
     assert client.put("/api/me/push", json={**ok, "channels": {"sms": {"enabled": True, "target": "1"}}}).status_code == 400
     assert client.put("/api/me/push", json={**ok, "channels": {"email": {"enabled": True, "target": "nope"}}}).status_code == 400
     assert client.put("/api/me/push", json={**ok, "channels": {"webhook": {"enabled": True, "target": "ftp://x"}}}).status_code == 400
-    assert client.put("/api/me/push", json={**ok, "channels": {"telegram": {"enabled": True, "target": "@mychannel"}}}).status_code == 200
+    assert client.put("/api/me/push", json={**ok, "channels": {"telegram": {"enabled": True, "target": "@mychannel"}}}).status_code == 400  # needs a bot token
+    tg = {"enabled": True, "target": "@mychannel", "token": "123456:ABCDEFGHIJKLMNOPQRSTUV"}
+    assert client.put("/api/me/push", json={**ok, "channels": {"telegram": tg}}).status_code == 200
     got = client.get("/api/me/push").json()
-    assert got["channels"]["telegram"] == {"enabled": True, "target": "@mychannel"} and got["channels"]["email"]["enabled"] is False
+    assert got["channels"]["telegram"]["enabled"] is True and got["channels"]["telegram"]["target"] == "@mychannel"
+    assert got["channels"]["telegram"]["has_token"] and "ABCDEFGH" not in str(got) and got["channels"]["email"]["enabled"] is False
     # enabling a channel needs a destination; a disabled, empty one is fine and clears it
     assert client.put("/api/me/push", json={**ok, "channels": {"telegram": {"enabled": True, "target": ""}}}).status_code == 400
     got = client.put("/api/me/push", json={**ok, "channels": {"telegram": {"enabled": False, "target": ""}}}).json()
-    assert got["channels"]["telegram"] == {"enabled": False, "target": ""}
+    assert got["channels"]["telegram"]["enabled"] is False and got["channels"]["telegram"]["target"] == ""
     # the login page follows the last used palette via a cookie
     client.put("/api/me/theme", json={"palette": "amber"})
     assert 'data-theme="amber"' in client.get("/login").text

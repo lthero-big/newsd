@@ -54,3 +54,6 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 .chips { display: flex; flex-wrap: wrap; gap: 6px; } .chips .tag button { border: 0; background: none; padding: 0 0 0 4px; color: inherit; }
 .q { font-variant-numeric: tabular-nums; }
 @media (max-width: 600px) { .actions { margin-left: 0; } }
+form.stack fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 4px 12px 10px; }
+form.stack legend { font-weight: 600; padding: 0 6px; }
+form.stack textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; }
