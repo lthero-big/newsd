@@ -3,88 +3,156 @@
 [![CI](https://github.com/lthero-big/newsd/actions/workflows/ci.yml/badge.svg)](https://github.com/lthero-big/newsd/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**可自托管的多用户 AI 日报服务。** 每个用户订阅自己的信息源和关键词，设定配额，每天定时拿到一份去重、打分、分组后的日报，可选用自己的大模型 key 做重排、翻译和摘要，并推送到 Telegram / 邮件 / 飞书 / 钉钉 / Slack / Discord / 通用 Webhook。
+**可自托管的多用户 AI 日报服务。** 每个用户订阅自己关心的信息源和关键词，newsd 每天定时采集、去重、打分、分组，生成一份个人日报；配上自己的大模型 key 还能做 AI 重排、翻译和摘要，并推送到 Telegram、邮件、飞书、钉钉、Slack、Discord 或任意 Webhook。
 
-**newsd is a self-hosted, multi-user AI news digest.** Each user subscribes to their own sources and keywords, sets quotas, and gets a deduplicated, scored, grouped daily report on a schedule. An optional per-user LLM key adds re-ranking, translation and summaries, and reports can be pushed to Telegram, e-mail, Feishu, DingTalk, Slack, Discord or any webhook. One Python codebase: FastAPI + SQLAlchemy (SQLite by default, Postgres optional) + APScheduler + Jinja2. MIT licensed.
+*newsd is a self-hosted, multi-user AI news digest: per-user sources, keywords and quotas, a scheduled daily report, optional LLM re-ranking / translation / summaries, and push delivery to Telegram, e-mail and webhooks. Python, FastAPI, SQLite or Postgres. MIT licensed.*
 
-<!-- 截图 / screenshots: 放到 docs/images/ 后在这里引用 -->
+<!-- 截图：放到 docs/images/ 后在这里引用 -->
 
 ## 功能
 
-- **多用户**：admin / user 角色；邀请码、公开注册或关闭注册三种模式，管理员可随时切换；错误口令 3 次锁 IP 15 分钟；每用户 API key / MCP token 只存哈希。
-- **共享采集池**：HN、Reddit、RSS/Atom、GitHub、Hugging Face、OSSInsight，以及经你自建 RSSHub 的 X 等源；每源每周期只抓一次，所有用户共享；trafilatura 抽取全文和发布日期；带 SSRF 防护。
-- **按用户出期**：关键词（关注 / 加权 / 屏蔽）规则打分，URL 和标题相似度去重，按话题 / 分组 / 模块 / 总量配额裁剪，每期入库。
-- **模型层（可选）**：OpenAI 兼容、Anthropic、Gemini、DeepSeek、通义、豆包、Ollama；用户 key 用服务器主密钥加密；没有 key 时规则管线照常运行；全站共享翻译缓存。
-- **定时 worker**：APScheduler 按时区和时刻先采集再给每个用户出期，运行记录可在管理后台查看。
-- **推送**：Telegram、SMTP 邮件、Webhook（通用 / 飞书 / 钉钉 / Slack / Discord，`#{变量}` 模板），失败退避重试、投递记录、一键测试。
-- **Web 界面**：日报、日历、收藏、回收站、设置页、管理后台（用户、邀请码、带质量统计的源目录、运行记录、推送记录）。
+- **多用户**：管理员 / 普通用户两种角色；邀请码注册、公开注册、关闭注册三种模式，可随时切换；登录失败 3 次锁定 IP 15 分钟；每个用户可生成 API key 供脚本调用。
+- **信息源**：Hacker News、Reddit、RSS/Atom、GitHub、Hugging Face、OSSInsight，以及经自建 RSSHub 接入的 X 等。所有用户共享一个采集池，同一个源每轮只抓一次；自动抽取正文和发布时间；内置 SSRF 防护。
+- **个人日报**：按关键词（关注 / 加权 / 屏蔽）打分，按链接和标题相似度去重，再按话题、分组和总量配额裁剪，每期结果存档。
+- **大模型（可选）**：支持 OpenAI 兼容接口、Anthropic、Gemini、DeepSeek、通义、豆包、Ollama。用户自己的 key 加密存储；不配 key 也能正常出日报。
+- **定时任务**：内置调度器，按设定的时区和时刻先采集、再给每个用户出日报，每次运行的记录可在管理后台查看。
+- **推送**：Telegram、SMTP 邮件、Webhook（通用 / 飞书 / 钉钉 / Slack / Discord，支持 `#{变量}` 模板），失败自动退避重试，有投递记录和一键测试。
+- **Web 界面**：日报、日历、收藏、回收站、个人设置（订阅、关键词、配额、推送、模型），以及管理后台（用户、邀请码、注册方式、信息源目录与质量统计、运行记录、推送记录）。
 
-## 当前进度
+## 部署
 
-- [x] M0 新仓库：全新 git 历史，只带代码，不带 data/、editions/、私有端点和私有 key。
-- [x] M1（骨架）：账号（admin/user）、注册（邀请码或公开注册，可随时切换）、session 登录、错误口令 3 次锁 IP 15 分钟、每用户 API key / MCP token（只存哈希）、用户密钥加密存储、管理员命令、Dockerfile 和 docker compose。
-- [ ] M2 管线迁移：
-  - [x] M2-1 源目录、订阅、关键词、配额进数据库。
-  - [x] M2-2 共享采集池（每源每周期只抓一次，`newsd pool run`）+ trafilatura 全文与元数据抽取（按源开关、共享缓存、失败退回源摘要），X 只走自建 RSSHub，不再依赖本机 gh CLI。见 [docs/m2-2-shared-pool.md](docs/m2-2-shared-pool.md)。
-  - [x] M2-4 模型层：多服务商 LLM 客户端（OpenAI 兼容 / Anthropic / Gemini / DeepSeek / 通义 / 豆包 / Ollama，限速、并发上限、退避重试、非法 JSON 修复一次）、用户 key 用服务器主密钥加密存储、设置页“测试连接”、全站共享翻译缓存、按类别的处理配置（Markdown 提示词 + 阈值）、可选 AI 重排和语义去重；没有 key 时管线照常跑（`newsd process run <用户>`）。见 [docs/m2-4-model-layer.md](docs/m2-4-model-layer.md)。
-  - [x] M2-3 按用户打分、过滤与分组配额：关键词（关注/加权/屏蔽，有全文时匹配全文）规则打分，先按 URL 和标题相似度去重，再按话题/分组/模块/总量上限裁剪，每期结果存库（`issues`/`issue_items`），有 key 时叠加 M2-4 模型打分。`newsd issue build <用户>|--all`、`GET /api/me/issues/latest`。见 [docs/m2-3-scoring.md](docs/m2-3-scoring.md)。
-  - [x] M2-5 调度器 + 独立 worker：APScheduler 按配置的时刻（时区可配）先跑一次共享采集，再给每个用户出当期结果；运行记录（起止、各阶段计数、每用户结果、错误）入库，管理员在 `/admin` 的“Worker 运行”查看；`docker compose up` 同时起 web 和 worker，不依赖 GitHub Actions / Cloudflare Pages。`newsd worker start|run-once|runs`。见 [docs/m2-5-worker.md](docs/m2-5-worker.md)。
-- [x] M3 前端：按用户动态渲染的日报 / 日历 / 收藏 / 回收站、设置页（订阅源、关键词、配额、推送偏好、模型与 key、类别阈值）、管理后台（用户、邀请码、注册方式、带质量统计的源目录、运行记录）、固定调色板换色（不再每周自动轮换）、注册后一键订阅预设源。见 [docs/m3-222-pages.md](docs/m3-222-pages.md)。
-- [x] M4 推送（DEPTAI-223）：Telegram / 邮件（SMTP）/ Webhook（通用、飞书、钉钉、Slack、Discord，`#{变量}` 模板，可选“一条汇总”或“汇总 + 每条一消息”），按每个用户设置的时间在日报生成后发送；失败退避重试，投递记录入库，管理后台“推送记录”可查；设置页每个渠道有“发送测试”，密钥加密存储、不进日志。`newsd push run|test|list`。见 [docs/m4-223-push.md](docs/m4-223-push.md)。
-- [x] M5 公开发布准备（DEPTAI-224）：MIT LICENSE、第三方许可清单、README / 中英文部署文档、GitHub Actions CI（ruff + pytest + gitleaks）、工作树和全部 git 历史的隐私与密钥扫描、公开前检查清单。见 [docs/m5-224-release.md](docs/m5-224-release.md) 和 [docs/public-release-checklist.md](docs/public-release-checklist.md)。仓库仍是私有，公开需要负责人确认。
+### 方式一：Docker Compose（推荐）
 
-## 快速开始
-
-**Docker（推荐）**
+需要 Docker 和 Docker Compose。
 
 ```bash
-git clone https://github.com/lthero-big/newsd.git && cd newsd
-cp .env.example .env            # 至少把 NEWSD_SECRET_KEY 改成一串长随机字符：python3 -c "import secrets; print(secrets.token_urlsafe(48))"
-docker compose up -d --build    # 同时启动 web（:8080）和定时 worker
-docker compose exec web newsd admin create admin
-docker compose exec web newsd db import-config --sources /app/config/collect-sources.json --tags /app/config/tags.json
+git clone https://github.com/lthero-big/newsd.git
+cd newsd
+cp .env.example .env
 ```
 
-打开 http://localhost:8080 登录。**NEWSD_SECRET_KEY 一旦设定就别再改**：用户存的模型 key / 推送密钥都用它加密，换了就解不开。
-
-**不用 Docker**
+编辑 `.env`，至少把 `NEWSD_SECRET_KEY` 改成一串长随机字符：
 
 ```bash
-cp .env.example .env
-uv venv && uv pip install -e '.[dev]'     # 或 python -m venv .venv && .venv/bin/pip install -e '.[dev]'
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+> `NEWSD_SECRET_KEY` 用来加密用户保存的模型 key 和推送密钥，**设定后不要再改**，备份数据库时也要一起备份它。
+
+启动并初始化：
+
+```bash
+docker compose up -d --build                     # 启动 web（端口 8080）和定时 worker
+docker compose exec web newsd admin create admin # 创建管理员账号，按提示输入密码
+docker compose exec web newsd db import-config \
+  --sources /app/config/collect-sources.json --tags /app/config/tags.json   # 导入默认信息源和标签
+```
+
+浏览器打开 http://localhost:8080 ，用刚才的管理员账号登录。数据保存在名为 `newsd-data` 的 Docker 卷里。
+
+### 方式二：直接运行（不用 Docker）
+
+需要 Python 3.11 或 3.12。
+
+```bash
+git clone https://github.com/lthero-big/newsd.git
+cd newsd
+cp .env.example .env                 # 同样先设置 NEWSD_SECRET_KEY
+python3 -m venv .venv
+.venv/bin/pip install -e .
+.venv/bin/newsd db upgrade           # 建表
 .venv/bin/newsd admin create admin
 .venv/bin/newsd db import-config
-.venv/bin/newsd serve                      # http://localhost:8080
-.venv/bin/newsd worker start               # 另开一个终端：定时采集和出期
+.venv/bin/newsd serve                # Web 服务：http://localhost:8080
+.venv/bin/newsd worker start         # 另开一个终端：定时采集、出日报、推送
 ```
 
-部署细节（反向代理 HTTPS、Postgres、systemd、备份、升级）见 [docs/deployment.md](docs/deployment.md) / [docs/deployment.en.md](docs/deployment.en.md)。
+长期运行建议用 systemd 托管 `serve` 和 `worker start` 两个进程，具体写法见部署文档。
+
+### 生产环境
+
+- **HTTPS**：newsd 本身不处理 TLS，请用 Caddy 或 nginx 反向代理到 `127.0.0.1:8080`，并在 `.env` 设置 `NEWSD_COOKIE_SECURE=1` 和 `NEWSD_PUBLIC_URL=https://你的域名`。
+- **数据库**：默认 SQLite，用户多或写入频繁时可以把 `NEWSD_DATABASE_URL` 换成 Postgres（`postgresql+psycopg://...`）。
+- **备份**：备份数据库文件（或 `pg_dump`），并且务必连同 `NEWSD_SECRET_KEY` 一起保存。
+- **健康检查**：`GET /healthz` 返回 200 表示服务正常。
+
+完整说明（Postgres、systemd、反向代理、备份恢复、排障）见 [部署指南](docs/deployment.md) / [Deployment guide](docs/deployment.en.md)。
 
 ## 配置
 
-全部通过环境变量（`.env`）。[.env.example](.env.example) 是带注释的完整示例，不含任何真实值。`config/collect-sources.json` 和 `config/tags.json` 是默认的公开源目录与标签词表（只有公开网址，没有密钥），用 `newsd db import-config` 导入数据库后，再在管理后台和设置页里增删。需要密钥的源（自建 RSSHub、GitHub token）只读环境变量，不写进配置文件。
+所有配置都通过环境变量设置，写在 `.env` 里；[.env.example](.env.example) 列出了全部选项和说明。常用的有：
 
-## 注册方式
+| 变量 | 作用 |
+| --- | --- |
+| `NEWSD_SECRET_KEY` | 必填，加密用户密钥用的主密钥 |
+| `NEWSD_DATABASE_URL` | 数据库地址，默认 `sqlite:///./var/newsd.db` |
+| `NEWSD_REGISTRATION` | 默认注册方式：`invite`、`open` 或 `closed` |
+| `NEWSD_WORKER_TIMES` / `NEWSD_WORKER_TZ` | 每天出日报的时刻和时区，例如 `07:00` 和 `Asia/Shanghai` |
+| `NEWSD_SMTP_*` | 邮件推送用的 SMTP 服务器 |
+| `NEWSD_TELEGRAM_BOT_TOKEN` | 可选，给没填自己 bot 的用户用的默认 Telegram bot |
+| `RSSHUB_BASE` / `RSSHUB_ACCESS_KEY` | 自建 RSSHub 地址；不设时 X 等依赖 RSSHub 的源会跳过 |
+| `NEWSD_GITHUB_TOKEN` | 可选，提高 GitHub 源的接口限额 |
 
-三种模式，管理员随时可以切换：
+`config/collect-sources.json` 和 `config/tags.json` 是默认的公开信息源目录和标签词表，导入后可以在管理后台和设置页里继续增删。
 
-- `invite`（默认）：凭邀请码注册，每个码只能用一次。`newsd admin invite` 生成邀请码。
-- `open`：公开注册，任何人都能在 `/register` 注册；填了邀请码也照样认。
-- `closed`：关闭注册，只能由管理员在命令行建账号。
+## 使用
 
-默认值写在 `.env` 的 `NEWSD_REGISTRATION`。运行中切换：`newsd admin registration open`（不带参数是查看当前模式），或管理员调用 `POST /api/admin/registration`（表单字段 `mode`）。切换结果存在数据库里，优先于 `.env`。
+### 管理员
 
-## 开发与测试
+1. 决定谁能注册：
+   - `invite`（默认）：用 `newsd admin invite` 生成一次性邀请码发给用户；
+   - `open`：任何人都可以在 `/register` 注册；
+   - `closed`：只能由管理员在命令行用 `newsd admin create` 建账号。
+
+   运行中切换用 `newsd admin registration open`（不带参数查看当前模式），或在管理后台里改。
+2. 在管理后台 `/admin` 管理用户和邀请码、维护信息源目录，查看每次定时任务和推送的记录。
+
+### 普通用户
+
+1. 注册登录后，可以在引导页一键订阅一组预设信息源。
+2. 在 **设置** 页调整订阅源、关注 / 加权 / 屏蔽关键词、各分组的条数配额和配色。
+3. （可选）在设置页填入大模型服务商、模型和 key，点"测试连接"确认可用，之后日报会加上 AI 重排、翻译和摘要。
+4. （可选）配置 Telegram、邮件或 Webhook 推送和推送时间，点"发送测试"确认能收到。
+5. 每天到点后在首页看当期日报，也可以按日历翻看往期，把条目收藏或移到回收站。
+
+### 命令行
+
+在 Docker 里运行时，在命令前加 `docker compose exec web`。
 
 ```bash
-.venv/bin/pytest          # 测试（全部用模拟 HTTP，不联网）
-.venv/bin/ruff check .    # 代码检查，CI 跑的是同一条命令
+newsd worker run-once            # 立即跑一轮：采集 + 给所有用户出日报
+newsd worker runs                # 查看最近的运行记录
+newsd issue build alice          # 只给用户 alice 生成今天的日报（--all 为所有用户，--no-ai 不调用模型）
+newsd issue show alice           # 以 JSON 打印 alice 的日报
+newsd push test alice telegram   # 用 alice 保存的配置发一条测试推送（email / telegram / webhook）
+newsd push list                  # 查看最近的投递记录
 ```
 
-CI（GitHub Actions）在每次 push / PR 上跑 ruff、Python 3.11 和 3.12 的 pytest，以及 gitleaks 密钥扫描，见 [docs/m5-224-release.md](docs/m5-224-release.md)。
+### API
+
+用 API key 调用接口，适合脚本或其他程序读取日报。先用账号登录拿到 cookie，再生成一个 key（只显示一次，服务器只存哈希）：
+
+```bash
+curl -c cookie.txt -d username=alice -d password='你的密码' http://localhost:8080/login
+curl -b cookie.txt -X POST -d kind=api -d name=script http://localhost:8080/api/tokens
+```
+
+之后把 key 放在 `Authorization: Bearer <key>` 或 `X-News-API-Key` 请求头里：
+
+```bash
+curl -H "Authorization: Bearer $NEWSD_API_KEY" http://localhost:8080/api/me/issues
+```
+
+## 开发
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/pytest          # 测试全部使用模拟 HTTP，不需要联网
+.venv/bin/ruff check .    # 代码检查
+```
+
+每次 push 和 Pull Request 都会在 GitHub Actions 上运行 ruff、pytest（Python 3.11 / 3.12）和 gitleaks 密钥扫描。
 
 ## 许可
 
 [MIT](LICENSE)。依赖和参考项目的许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
-
-
