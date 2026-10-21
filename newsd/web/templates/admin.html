@@ -2,6 +2,7 @@
 {% block console %}
 {% set H = ov.health %}{% set ht = (H.ok + H.warn + H.err + H.off) or 1 %}{% set ut = ov.users or 1 %}
 <div class="page-head"><div class="kicker"><span class="dot"></span>Admin · 仅管理员可见</div><h1 class="display">管理<em>概览</em></h1><p>只放汇总数字。用户明细在「用户与分组」，每个源的状态在「源健康」，运行记录在「日志与任务」。</p></div>
+<section class="card upd" id="upd" aria-live="polite"><div class="row sp"><b>版本与更新</b><span class="muted mono" style="font-size:12px" id="updMeta">当前 v{{ version }}</span></div><div id="updBody" class="muted" style="margin-top:8px;font-size:14px">正在检查…</div></section>
 <div class="ov-kpis" id="kpi">
  <div class="card"><span>用户</span><b>{{ ov.users }}</b><small class="{{ 'up' if ov.new_7d else '' }}">{{ ('+' ~ ov.new_7d ~ ' 本周') if ov.new_7d else '&nbsp;'|safe }}</small></div>
  <div class="card"><span>7 天活跃</span><b>{{ ov.active_7d }}</b><small>{{ (ov.active_7d / ut * 100)|round|int }}%</small></div>
@@ -31,3 +32,4 @@
   <div class="ov-kpis" style="grid-template-columns:repeat(3,1fr);margin-top:10px"><div><span class="muted" style="font-size:12px">运行</span><b style="font:400 30px var(--font-display);display:block">{{ ov.runs_today }}</b></div><div><span class="muted" style="font-size:12px">失败</span><b style="font:400 30px var(--font-display);display:block{% if ov.runs_failed %};color:var(--danger){% endif %}">{{ ov.runs_failed }}</b></div><div><span class="muted" style="font-size:12px">推送成功率</span><b style="font:400 30px var(--font-display);display:block">{{ (ov.push_rate ~ '%') if ov.push_rate is not none else '—' }}</b></div></div></section>
 </div>
 {% endblock %}
+{% block script %}<script src="/static/v2/admin-update.js?v={{ asset_v }}"></script>{% endblock %}

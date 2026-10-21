@@ -1,9 +1,10 @@
-# Local deployment: no GitHub Actions, no Cloudflare Pages. `docker compose up -d --build` starts both services.
+# `docker compose up -d` starts web + worker. Add `--profile updater` to enable the web "update" button
+# (see docs/updates.md). Images: NEWSD_IMAGE / NEWSD_VERSION; `docker compose up -d --build` builds locally instead.
 x-newsd: &newsd
-  image: newsd:local
+  image: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}:${NEWSD_VERSION:-latest}
   env_file: .env
   environment:
-    NEWSD_DATABASE_URL: sqlite:////data/newsd.db
+    NEWSD_DATABASE_URL: ${NEWSD_DATABASE_URL:-sqlite:////data/newsd.db}
   volumes:
     - newsd-data:/data
   restart: unless-stopped
@@ -13,7 +14,7 @@ services:
     <<: *newsd
     build: .
     ports:
-      - "8080:8080"
+      - "${NEWSD_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
       interval: 10s
@@ -27,5 +28,18 @@ services:
     depends_on:
       web:
         condition: service_healthy  # web runs the DB migrations first
+  # optional: web-triggered updates. The only container with the Docker socket; it pulls NEWSD_IMAGE:<release> and
+  # recreates web and worker of this project. Not published on any port.
+  updater:
+    image: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}:${NEWSD_VERSION:-latest}
+    profiles: ["updater"]
+    command: ["newsd", "updater"]
+    env_file: .env
+    environment:
+      NEWSD_IMAGE: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}
+    user: "0:0"  # to read /var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
 volumes:
   newsd-data:

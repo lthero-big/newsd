@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
+from . import __version__
 from .auth import current_user, get_db
 from .feedback import FEATURE_W, HALF_LIFE_DAYS, TRASH_DAYS, W_DELETE, W_DISLIKE, learn_settings, trash_items
 from .issues import issue_view, item_cards
@@ -68,7 +69,7 @@ def render(request: Request, name: str, user, db, status_code: int = 200, **ctx)
         from .perms import has
         nav = CONSOLE_NAV + ((LOGS_NAV,) if has(db, user, "logs") else ())
     base = {"user": user, "palette": theme, "theme": theme, "themes": THEMES, "ui": ui, "trash_n": trash_n, "read_nav": READ_NAV,
-            "console_nav": nav, "asset_v": ASSET_V, "modules": MODULES}
+            "console_nav": nav, "asset_v": ASSET_V, "modules": MODULES, "version": __version__}
     return templates.TemplateResponse(request, name, base | ctx, status_code=status_code)
 
 

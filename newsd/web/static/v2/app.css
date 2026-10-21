@@ -588,3 +588,8 @@ body.dnd-active,body.dnd-active *{cursor:grabbing!important;user-select:none;-we
 @media (max-width:640px){.sect .srow{grid-template-columns:auto 1fr auto}.sect .srow .grip2{display:inline-block}}
 @media (max-width:900px){.src-layout{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){.sect>header{flex-wrap:wrap;row-gap:6px}.sect>header>span[style*="flex:1"]{flex-basis:100%;order:9;height:0}.sect>header>.btn,.sect>header>.switch{order:10}.sect .srow>.row{flex-wrap:wrap;justify-content:flex-end}.sect .srow{padding:10px 12px}}
+/* 4b 版本与更新 */
+.upd{margin-bottom:16px}.upd-notes{margin-top:10px}.upd-notes summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.upd-notes pre{font:12px/1.6 var(--font-mono);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;max-height:260px;overflow:auto;margin:8px 0 0}
+.upd-job{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.upd-steps{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--ink)}.upd-steps li{margin:2px 0;overflow-wrap:anywhere}.upd-steps li.e{color:var(--danger)}.upd-steps li.w{color:var(--warn)}.upd-steps .mono{color:var(--muted);font-size:11px}

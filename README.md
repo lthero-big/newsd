@@ -137,6 +137,10 @@ python3 -m venv .venv
 
 数据库迁移是自动的：web 启动时会把数据库升级到当前版本。**升级前先做一次备份**（见下一节）。
 
+**网页端一键更新**：管理员在「管理 → 概览」的「版本与更新」卡片里能看到有没有新版本和更新说明，点「更新」即可：本机部署会快进代码、自动备份 SQLite、迁移数据库并重启；Docker 部署需要先启用可选的 `updater` 容器（`docker compose --profile updater up -d`），由它拉取新镜像并依次重建 web 和 worker，新 web 没起来会自动回滚。原理和安全说明见 [docs/updates.md](docs/updates.md)。
+
+手动升级：
+
 - **Docker Compose**：
   ```bash
   git pull
@@ -180,7 +184,9 @@ python3 -m venv .venv
 | `NEWSD_SMTP_*` | 邮件推送用的 SMTP 服务器 |
 | `NEWSD_TELEGRAM_BOT_TOKEN` | 可选，给没有填自己 bot 的用户用的默认 Telegram bot |
 | `RSSHUB_BASE` / `RSSHUB_ACCESS_KEY` | 自建 RSSHub 地址；不设时 X 等依赖 RSSHub 的源会跳过 |
-| `NEWSD_GITHUB_TOKEN` | 可选，提高 GitHub 源的接口限额 |
+| `NEWSD_GITHUB_TOKEN` | 可选，提高 GitHub 源和版本检查的接口限额 |
+| `NEWSD_UPDATE_CHECK` | 设为 `0` 关闭版本检查；`NEWSD_DEPLOY_MODE=none` 关闭网页端更新 |
+| `NEWSD_RESTART_CMD` | 本机部署网页端更新后的重启命令，例如 `sudo systemctl restart newsd-web newsd-worker`；不设时进程自己重启 |
 
 `config/collect-sources.json` 和 `config/tags.json` 是默认的公开信息源目录和标签词表，导入后可以在网页上继续增删。
 

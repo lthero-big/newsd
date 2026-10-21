@@ -308,6 +308,11 @@ def serve() -> int:
         db.close()
     for j in sched.get_jobs():
         log.info("scheduled %s", j.name)
+    from apscheduler.triggers.interval import IntervalTrigger
+
+    from .updates import watch_for_new_code
+    sched.add_job(watch_for_new_code, IntervalTrigger(minutes=1), id="update-watch", name="restart after a web update",
+                  max_instances=1, coalesce=True)  # 4b: the web process updated the checkout and migrated the DB
     if s.worker_run_on_start:
         sched.add_job(lambda: tick("startup"), id="startup", name="startup run", max_instances=1)  # fires immediately
 

@@ -56,6 +56,10 @@ def main(argv=None) -> int:
     s.add_argument("--host", default="0.0.0.0")
     s.add_argument("--port", type=int, default=8080)
     sub.add_parser("initdb", help="create tables")
+    upd = sub.add_parser("updater", help="docker update sidecar (needs /var/run/docker.sock; see docs/updates.md)")
+    upd.add_argument("--host", default="0.0.0.0")
+    upd.add_argument("--port", type=int, default=8090)
+    sub.add_parser("version", help="print the version and the latest release")
     d = sub.add_parser("db", help="schema migrations and catalog import")
     dsub = d.add_subparsers(dest="dcmd", required=True)
     dsub.add_parser("upgrade", help="alembic upgrade head")
@@ -132,6 +136,20 @@ def main(argv=None) -> int:
     from .models import Invite, User
     from .security import new_token, token_hash
 
+    if args.cmd == "updater":
+        from .updater import serve as updater_serve
+        return updater_serve(args.host, args.port)
+    if args.cmd == "version":
+        from . import __version__
+        from .updates import fetch_latest, newer
+        print(f"newsd {__version__}")
+        try:
+            latest = fetch_latest(timeout=8).get("latest")
+        except Exception as exc:  # offline is fine
+            print(f"latest release: unknown ({type(exc).__name__})")
+            return 0
+        print(f"latest release: {latest or 'none'}" + ("  (update available)" if newer(latest) else ""))
+        return 0
     if args.cmd == "serve":
         import uvicorn
 
