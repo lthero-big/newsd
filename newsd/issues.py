@@ -145,7 +145,8 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
         if client is not None:
             u = client.usage
             report["usage"] = {"requests": u.requests, "retries": u.retries, "repairs": u.repairs,
-                               "invalid_json": u.invalid_json, "errors": dict(u.errors)}
+                               "invalid_json": u.invalid_json, "errors": dict(u.errors),
+                               "failovers": getattr(u, "failovers", 0), "chain": getattr(client, "labels", [client.label])}
         return report
     finally:
         if own:

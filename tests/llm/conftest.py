@@ -33,3 +33,12 @@ def _no_real_network(monkeypatch):
         raise AssertionError(f"unexpected real model call to {request.url}")
 
     monkeypatch.setattr(keys, "TRANSPORT", httpx.MockTransport(refuse))
+
+
+@pytest.fixture(autouse=True)
+def _reset_test_rate_limit():
+    """The per-user test-connection limiter is process-global and user ids repeat across test DBs."""
+    from newsd.llm import api
+    api._test_calls.clear()
+    yield
+    api._test_calls.clear()

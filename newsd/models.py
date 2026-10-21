@@ -74,6 +74,29 @@ class UserSetting(Base):
     secret: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class LLMProvider(Base):
+    """One of a user's model providers (DEPTAI-216). Enabled providers are tried in ``priority``
+    order (0 first) with automatic failover. ``secret`` is the API key, encrypted with the server
+    master key; only ``key_last4`` is ever shown. ``base_url`` NULL = the preset's default."""
+    __tablename__ = "llm_providers"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    preset: Mapped[str] = mapped_column(String(32))
+    base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    model: Mapped[str] = mapped_column(String(128))
+    secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_last4: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    last_test_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_test_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
 class GlobalSetting(Base):
     """Admin-level defaults and limits (max sources per user, editions per day, min interval...)."""
     __tablename__ = "global_settings"

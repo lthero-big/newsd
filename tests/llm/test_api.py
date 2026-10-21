@@ -30,11 +30,12 @@ def test_key_stored_encrypted_and_never_returned(client):
     assert KEY not in client.get("/api/me/llm").text
 
     from newsd.db import SessionLocal
-    from newsd.models import UserSetting
+    from newsd.models import LLMProvider, UserSetting
     from newsd.security import decrypt_secret
     db = SessionLocal()
-    row = db.scalar(select(UserSetting).where(UserSetting.key == "llm"))
-    assert row.secret and KEY not in row.secret and KEY not in str(row.value)
+    row = db.scalar(select(LLMProvider))  # v1 API writes the primary provider row
+    assert row.secret and KEY not in row.secret and row.key_last4 == "1234"
+    assert all(KEY not in str(s.value) and not s.secret for s in db.scalars(select(UserSetting)))
     assert decrypt_secret(row.secret) == KEY  # M1 server-key Fernet
     db.close()
 
@@ -93,7 +94,7 @@ def test_profiles_api_and_settings_page(client):
     assert client.put("/api/me/profiles", json=[{"name": "research"}, {"name": "research"}]).status_code == 400
 
     page = client.get("/settings")
-    assert page.status_code == 200 and "测试连接" in page.text and "/api/me/llm/test" in page.text and "Anthropic" in page.text
+    assert page.status_code == 200 and "测试连接" in page.text and "/api/me/llm/providers/test" in page.text and "Anthropic" in page.text
     assert {p["provider"] for p in client.get("/api/llm/providers").json()} >= {
         "openai", "anthropic", "gemini", "deepseek", "tongyi", "doubao", "ollama"}
     client.cookies.clear()

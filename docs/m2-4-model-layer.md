@@ -14,6 +14,7 @@
   | `gemini` | `/v1beta/models/{model}:generateContent`（key 走 `x-goog-api-key` 头，不进 URL） | generativelanguage.googleapis.com |
   | `ollama` | `/api/chat`，无需 key | localhost:11434 |
   - 用户不能填 URL：地址按服务商固定，管理员可用 `NEWSD_LLM_BASE_<PROVIDER>` 覆盖（网关、Ollama 所在机器）。这样用户配置不可能让服务器去请求内网地址（与 M2-2 的 SSRF 思路一致）。
+  - **DEPTAI-216 起已改为多服务商 + 用户可填 Base URL，见 [216-multi-provider.md](216-multi-provider.md)。**
   - 限速：`NEWSD_LLM_RPM`（默认每分钟 30 次，按请求开始时间均匀间隔）；并发上限：`NEWSD_LLM_CONCURRENCY`（默认 3）；超时 60 秒。
   - 重试：超时、连接错误、408/409/425/429/5xx/529 指数退避重试（默认 3 次，尊重 `Retry-After`，上限 30 秒）；401/403（auth）和其他 4xx 不重试。
   - JSON：先宽松解析（纯 JSON、```json 代码块、最外层 `{…}`/`[…]`）；不合法就让模型修一次；还不合法返回 `None`，调用方记为空结果，不影响整轮。

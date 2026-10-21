@@ -1,20 +1,20 @@
 """Multi-provider LLM client with one interface (modeled on Horizon's ai client).
 
-A model is configured with three things only: ``provider``, ``model`` and ``api_key``. Base URLs are
-fixed per provider; an admin may override one with ``NEWSD_LLM_BASE_<PROVIDER>`` (e.g. a corporate
-gateway, or where Ollama runs). Users never supply URLs, so a user-provided config cannot point the
-server at an internal address.
+A model is configured with ``provider`` (a preset id from :mod:`newsd.llm.presets`), ``model``,
+``api_key`` and optionally ``base`` -- a user-supplied base URL (self-hosted gateway / proxy) that
+replaces the preset default. User URLs are checked by :mod:`newsd.llm.netguard` (no private or
+internal addresses unless trusted) when saved and again before every request. An admin may override
+a preset's default with ``NEWSD_LLM_BASE_<PROVIDER>`` (e.g. a corporate gateway, or where Ollama runs).
 
-Providers:
-  openai, deepseek, tongyi, doubao, openai_compatible  -> OpenAI ``/chat/completions`` wire format
-  anthropic                                           -> ``/v1/messages``
-  gemini                                              -> ``/v1beta/models/{model}:generateContent``
-  ollama                                              -> ``/api/chat`` (no key)
+Wire formats (per preset): OpenAI ``/chat/completions`` (most providers), Anthropic ``/v1/messages``,
+Gemini ``/v1beta/models/{model}:generateContent``, Ollama ``/api/chat`` (no key).
 
 Every ``LLMClient`` enforces a request rate (requests per minute), a concurrency cap and retries
 with exponential backoff (timeouts, connection errors, 429, 5xx; ``Retry-After`` honoured).
 ``complete_json`` parses the reply as JSON, asks the model to repair it once if it is not valid,
 and returns ``None`` if it still is not (callers record that as an empty result).
+``FailoverClient`` wraps several ``LLMClient`` s in priority order and moves to the next one when a
+provider fails (after its own retries).
 """
 from __future__ import annotations
 
@@ -28,25 +28,15 @@ from dataclasses import dataclass, field
 
 import httpx
 
-DEFAULT_BASES = {
-    "openai": "https://api.openai.com/v1",
-    "deepseek": "https://api.deepseek.com/v1",
-    "tongyi": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "doubao": "https://ark.cn-beijing.volces.com/api/v3",
-    "openai_compatible": "",  # admin must set NEWSD_LLM_BASE_OPENAI_COMPATIBLE
-    "anthropic": "https://api.anthropic.com",
-    "gemini": "https://generativelanguage.googleapis.com",
-    "ollama": "http://localhost:11434",
-}
-OPENAI_WIRE = {"openai", "deepseek", "tongyi", "doubao", "openai_compatible"}
-JSON_MODE = {"openai", "deepseek", "tongyi"}  # providers known to accept response_format=json_object
-KEYLESS = {"ollama"}
+from . import presets as _presets
+
+DEFAULT_BASES = {p.id: p.base for p in _presets.PRESETS.values()}
+WIRE = {p.id: p.wire for p in _presets.PRESETS.values()}
+OPENAI_WIRE = {p for p, w in WIRE.items() if w == "openai"}
+JSON_MODE = {p.id for p in _presets.PRESETS.values() if p.json_mode}  # accept response_format=json_object
+KEYLESS = {p.id for p in _presets.PRESETS.values() if p.keyless}
 PROVIDERS = tuple(DEFAULT_BASES)
-PROVIDER_LABELS = {
-    "openai": "OpenAI", "deepseek": "DeepSeek", "tongyi": "通义千问 (DashScope)", "doubao": "豆包 (火山方舟)",
-    "openai_compatible": "OpenAI 兼容（管理员配置的地址）", "anthropic": "Anthropic Claude", "gemini": "Google Gemini",
-    "ollama": "Ollama（本地）",
-}
+PROVIDER_LABELS = {p.id: p.name for p in _presets.PRESETS.values()}
 RETRY_STATUS = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 ANTHROPIC_VERSION = "2023-06-01"
 
@@ -68,6 +58,15 @@ class ModelConfig:
     provider: str
     model: str
     api_key: str = ""
+    base: str = ""  # user-supplied base URL (overrides the preset default); checked by netguard
+    trusted: bool = False  # skip the private-address check for ``base`` (admin-owned config)
+
+    @property
+    def wire(self) -> str:
+        return WIRE.get(self.provider, "")
+
+    def effective_base(self) -> str:
+        return (self.base or base_url(self.provider)).rstrip("/")
 
     def validate(self) -> None:
         if self.provider not in DEFAULT_BASES:
@@ -78,12 +77,18 @@ class ModelConfig:
             raise LLMError("config", "model name is missing or invalid")
         if self.provider not in KEYLESS and not self.api_key:
             raise LLMError("config", "api key is required for this provider")
-        if not base_url(self.provider):
+        if self.base:
+            from .netguard import normalize
+            self.base = normalize(self.base)
+        elif not base_url(self.provider):
+            if self.provider == "custom":
+                raise LLMError("config", "a custom provider needs a base URL")
             raise LLMError("config", f"provider {self.provider} has no base URL; the admin must set "
                                      f"NEWSD_LLM_BASE_{self.provider.upper()}")
 
     def __repr__(self) -> str:  # never print the key
-        return f"ModelConfig(provider={self.provider!r}, model={self.model!r}, api_key={'***' if self.api_key else ''!r})"
+        return (f"ModelConfig(provider={self.provider!r}, model={self.model!r}, "
+                f"api_key={'***' if self.api_key else ''!r}, base={self.base!r})")
 
 
 def base_url(provider: str) -> str:
@@ -95,46 +100,52 @@ def base_url(provider: str) -> str:
 def build_request(cfg: ModelConfig, system: str, user: str, *, json_mode: bool, max_tokens: int,
                   temperature: float) -> tuple[str, dict, dict]:
     """Return (url, headers, json body) for one chat completion."""
-    base, p = base_url(cfg.provider), cfg.provider
-    if p in OPENAI_WIRE:
+    base, p, wire = cfg.effective_base(), cfg.provider, cfg.wire
+    if wire == "openai":
         body = {"model": cfg.model, "temperature": temperature, "max_tokens": max_tokens,
                 "messages": ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]}
         if json_mode and p in JSON_MODE:
             body["response_format"] = {"type": "json_object"}
         return f"{base}/chat/completions", {"Authorization": f"Bearer {cfg.api_key}"}, body
-    if p == "anthropic":
+    if wire == "anthropic":
         body = {"model": cfg.model, "max_tokens": max_tokens, "temperature": temperature,
                 "messages": [{"role": "user", "content": user}]}
         if system:
             body["system"] = system
-        return f"{base}/v1/messages", {"x-api-key": cfg.api_key, "anthropic-version": ANTHROPIC_VERSION}, body
-    if p == "gemini":
+        root = base if base.endswith("/v1") else base + "/v1"
+        return f"{root}/messages", {"x-api-key": cfg.api_key, "anthropic-version": ANTHROPIC_VERSION}, body
+    if wire == "gemini":
         gen = {"temperature": temperature, "maxOutputTokens": max_tokens}
         if json_mode:
             gen["responseMimeType"] = "application/json"
         body = {"contents": [{"role": "user", "parts": [{"text": user}]}], "generationConfig": gen}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
-        return f"{base}/v1beta/models/{cfg.model}:generateContent", {"x-goog-api-key": cfg.api_key}, body
-    if p == "ollama":
+        root = base[:-len("/openai")] if base.endswith("/openai") else base
+        if not re.search(r"/v1(beta)?$", root):
+            root += "/v1beta"
+        return f"{root}/models/{cfg.model}:generateContent", {"x-goog-api-key": cfg.api_key}, body
+    if wire == "ollama":
         body = {"model": cfg.model, "stream": False, "options": {"temperature": temperature, "num_predict": max_tokens},
                 "messages": ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": user}]}
         if json_mode:
             body["format"] = "json"
         headers = {"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {}
-        return f"{base}/api/chat", headers, body
+        root = base[:-len("/v1")] if base.endswith("/v1") else base
+        return f"{root}/api/chat", headers, body
     raise LLMError("config", f"unknown provider {p!r}")
 
 
 def parse_response(provider: str, data: dict) -> str:
+    wire = WIRE.get(provider, provider)
     try:
-        if provider in OPENAI_WIRE:
+        if wire == "openai":
             return data["choices"][0]["message"]["content"] or ""
-        if provider == "anthropic":
+        if wire == "anthropic":
             return "".join(b.get("text", "") for b in data["content"] if b.get("type") == "text")
-        if provider == "gemini":
+        if wire == "gemini":
             return "".join(p.get("text", "") for p in data["candidates"][0]["content"]["parts"])
-        if provider == "ollama":
+        if wire == "ollama":
             return data["message"]["content"] or ""
     except (KeyError, IndexError, TypeError, AttributeError) as exc:
         raise LLMError("bad_response", f"unexpected response shape ({type(exc).__name__})") from exc
@@ -192,6 +203,7 @@ class Usage:
     repairs: int = 0
     invalid_json: int = 0
     errors: dict = field(default_factory=dict)
+    failovers: int = 0
 
 
 class RateLimiter:
@@ -260,9 +272,21 @@ class LLMClient:
     def _note_error(self, kind: str) -> None:
         self.usage.errors[kind] = self.usage.errors.get(kind, 0) + 1
 
+    async def _guard(self, url: str) -> None:
+        """Re-check a user-supplied base URL right before sending (its DNS may have changed)."""
+        if not self.cfg.base or self.cfg.trusted:
+            return
+        from . import netguard
+        try:
+            await asyncio.to_thread(netguard.check, url)
+        except LLMError:
+            self._note_error("config")
+            raise
+
     async def _post(self, url: str, headers: dict, body: dict) -> dict:
         attempt = 0
         while True:
+            await self._guard(url)
             await self.limiter.acquire()
             resp, err = None, None
             async with self.sem:
@@ -335,3 +359,92 @@ class LLMClient:
                     "model": self.cfg.model}
         finally:
             self.retries = saved
+
+
+class FailoverClient:
+    """Several providers in priority order behind the ``LLMClient`` interface.
+
+    Each request goes to the first provider that is not cooling down; when it fails (after that
+    client's own retries) the provider cools down for ``cooldown`` seconds and the request moves on
+    to the next one. If every provider fails, the last error is raised. ``label`` names the provider
+    that served the latest request (the primary until something has been served)."""
+
+    def __init__(self, clients: list[LLMClient], *, cooldown: float = 300.0, clock=time.monotonic):
+        if not clients:
+            raise LLMError("config", "no model provider is enabled")
+        self.clients = list(clients)
+        self.cooldown, self.clock = cooldown, clock
+        self._down: dict[int, float] = {}
+        self._current = 0
+        self._own = Usage()
+        self.events: list[dict] = []  # {"from", "to", "kind"} per failover
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        for c in self.clients:
+            await c.aclose()
+
+    @property
+    def label(self) -> str:
+        return self.clients[self._current].label
+
+    @property
+    def labels(self) -> list[str]:
+        return [c.label for c in self.clients]
+
+    @property
+    def usage(self) -> Usage:
+        u = Usage(repairs=self._own.repairs, invalid_json=self._own.invalid_json, failovers=self._own.failovers)
+        for c in self.clients:
+            u.requests += c.usage.requests
+            u.retries += c.usage.retries
+            u.repairs += c.usage.repairs
+            u.invalid_json += c.usage.invalid_json
+            for k, v in c.usage.errors.items():
+                u.errors[k] = u.errors.get(k, 0) + v
+        return u
+
+    def _order(self) -> list[int]:
+        now = self.clock()
+        up = [i for i in range(len(self.clients)) if self._down.get(i, 0) <= now]
+        down = sorted((i for i in range(len(self.clients)) if i not in up), key=lambda i: self._down[i])
+        return up + down  # if all are cooling down, still try them (soonest-recovering first)
+
+    async def complete(self, system: str, user: str, **kw) -> str:
+        err: LLMError | None = None
+        order = self._order()
+        for n, i in enumerate(order):
+            try:
+                out = await self.clients[i].complete(system, user, **kw)
+            except LLMError as exc:
+                err = exc
+                self._down[i] = self.clock() + self.cooldown
+                if n + 1 < len(order):
+                    self._own.failovers += 1
+                    self.events.append({"from": self.clients[i].label, "to": self.clients[order[n + 1]].label,
+                                        "kind": exc.kind})
+                continue
+            self._down.pop(i, None)
+            self._current = i
+            return out
+        raise err
+
+    async def complete_json(self, system: str, user: str, *, max_tokens: int = 2048, temperature: float = 0.0):
+        text = await self.complete(system, user, json_mode=True, max_tokens=max_tokens, temperature=temperature)
+        try:
+            return loads_lenient(text)
+        except ValueError:
+            pass
+        self._own.repairs += 1
+        fixed = await self.complete(REPAIR_SYSTEM, f"Fix this into valid JSON:\n\n{(text or '')[:12000]}",
+                                    json_mode=True, max_tokens=max_tokens, temperature=0.0)
+        try:
+            return loads_lenient(fixed)
+        except ValueError:
+            self._own.invalid_json += 1
+            return None

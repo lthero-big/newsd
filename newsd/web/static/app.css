@@ -57,3 +57,12 @@ table { border-collapse: collapse; width: 100%; font-size: 13px; } th, td { text
 form.stack fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 12px 0; padding: 4px 12px 10px; }
 form.stack legend { font-weight: 600; padding: 0 6px; }
 form.stack textarea { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; }
+/* model providers (DEPTAI-216) */
+.prov-list { display: grid; gap: 8px; margin: 8px 0; }
+.prov { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card); }
+.prov.off { opacity: .6; } .prov-main { flex: 1 1 240px; min-width: 0; } .prov-main .meta span { overflow-wrap: anywhere; }
+.prov-badge { width: 30px; height: 30px; border-radius: 8px; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex: none; }
+.prov-actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; } .meta-inline { color: var(--muted); }
+#prov-form { display: grid; gap: 6px; max-width: 560px; border: 1px dashed var(--line); border-radius: 8px; padding: 10px; }
+#prov-form[hidden] { display: none; }
+#llm-opts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }

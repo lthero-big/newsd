@@ -17,7 +17,8 @@ from .admin import admin_runs, source_rows
 from .auth import current_user, get_db
 from .issues import issue_view
 from .llm import keys as llm_keys
-from .llm.client import KEYLESS, PROVIDER_LABELS, PROVIDERS, base_url
+from .llm.client import base_url
+from .llm.presets import REGIONS, VISIBLE
 from .llm.profiles import all_profiles, get_picks
 from .marks import marked_items
 from .models import Issue, Keyword, Quota, Source, Subscription
@@ -138,8 +139,7 @@ def welcome_page(request: Request, user=Depends(current_user), db=Depends(get_db
 def settings_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
     if user is None:
         return login_redirect()
-    providers = [{"provider": p, "label": PROVIDER_LABELS[p], "available": bool(base_url(p)), "keyless": p in KEYLESS}
-                 for p in PROVIDERS]
+    llm_presets = [{**p.public(), "base_url": base_url(p.id)} for p in VISIBLE]
     picked = {p["name"]: p["threshold"] for p in get_picks(db, user.id)}
     subscribed = set(db.scalars(select(Subscription.source_id).where(Subscription.user_id == user.id, Subscription.enabled.is_(True))))
     by_kind: dict[str, list] = {}
@@ -150,8 +150,8 @@ def settings_page(request: Request, user=Depends(current_user), db=Depends(get_d
         kws.setdefault(k.kind, []).append({"id": k.id, "term": k.term, "weight": k.weight})
     quotas = [{"module": q.module, "group_name": q.group_name, "max_items": q.max_items, "categories": q.categories or []}
               for q in db.scalars(select(Quota).where(Quota.user_id == user.id).order_by(Quota.module, Quota.group_name))]
-    return render(request, "settings.html", user, db, nav="settings", page="settings", providers=providers,
-                  llm=llm_keys.public_settings(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
+    return render(request, "settings.html", user, db, nav="settings", page="settings", llm_presets=llm_presets,
+                  llm_regions=REGIONS, llm_view=llm_keys.overview(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
                   profiles=list(all_profiles().values()), picked=picked, palettes=PALETTES, sources=list(by_kind.items()),
                   keywords=kws, quotas=quotas, push=get_push(db, user.id), webhook_types=WEBHOOK_TYPES,
                   smtp_ready=bool(get_settings().smtp_host))
