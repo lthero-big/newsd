@@ -1,10 +1,8 @@
-{% extends "base.html" %}{% block title %}登录 · newsd{% endblock %}
-{% block body %}<main class="narrow"><h1>newsd</h1>
-{% if error %}<p role="alert">{{ error }}</p>{% endif %}
-<form method="post" action="/login" class="stack">
-<label>用户名 <input name="username" autocomplete="username" required></label>
-<label>密码 <input name="password" type="password" autocomplete="current-password" required></label>
-<button type="submit" class="primary">登录</button></form>
-{% if registration == "open" %}<p>没有账号？<a href="/register">直接注册</a>（有邀请码也可以填）。</p>
-{% elif registration == "invite" %}<p>没有账号？向管理员索取邀请码后<a href="/register">注册</a>。</p>{% endif %}
-</main>{% endblock %}
+{% extends "_auth.html" %}{% block title %}登录 · newsd{% endblock %}
+{% block box %}<h2>欢迎回来</h2><p class="muted" style="margin:0 0 22px">登录以查看你的日报</p>
+{% if error %}<p class="callout err" role="alert">{{ error }}</p>{% endif %}
+<form method="post" action="/login"><div class="field"><label for="u">用户名</label><input class="input" id="u" name="username" autocomplete="username" required autofocus></div>
+<div class="field"><label for="p">密码</label><input class="input" id="p" name="password" type="password" autocomplete="current-password" required></div>
+<button type="submit" class="btn primary" style="width:100%;justify-content:center;padding:10px">登录</button></form>
+{% if registration == "open" %}<p class="muted" style="text-align:center;font-size:14px;margin-top:20px">没有账号？<a href="/register" style="color:var(--accent)">直接注册</a>（有邀请码也可以填）。</p>
+{% elif registration == "invite" %}<p class="muted" style="text-align:center;font-size:14px;margin-top:20px">没有账号？向管理员索取邀请码后<a href="/register" style="color:var(--accent)">注册</a>。</p>{% endif %}{% endblock %}

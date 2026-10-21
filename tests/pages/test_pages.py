@@ -47,30 +47,30 @@ def test_settings_pages_are_independent(client):
     assert client.put("/api/me/quotas", json=[{"max_items": 11}, {"module": "news", "max_items": 4}]).status_code == 200
     assert client.put("/api/me/push", json={"enabled": True, "time": "07:30", "timezone": "Asia/Shanghai",
                                            "channels": {"email": {"enabled": True, "target": "alice@example.com"}}}).status_code == 200
-    assert client.put("/api/me/theme", json={"palette": "rose"}).json() == {"palette": "rose"}
+    assert client.put("/api/me/theme", json={"palette": "arch-crt"}).json() == {"palette": "arch-crt"}
     assert client.put("/api/me/llm", json={"provider": "deepseek", "model": "alice-model", "api_key": "sk-alice-12345678"}).status_code == 200
     a = client.get("/settings")
     assert a.status_code == 200
     assert "alice-secret-block" in a.text and "alice@example.com" in a.text and "07:30" in a.text
-    assert 'value="11"' in a.text and 'data-theme="rose"' in a.text and "alice-model" in a.text
+    assert 'value="11"' in a.text and 'data-theme="arch-crt"' in a.text and "alice-model" in a.text
     assert "sk-alice-12345678" not in a.text and "5678" in a.text  # only the last 4 digits ever reach the page
 
     login(client, "bob")
     b = client.get("/settings")
     assert b.status_code == 200
     assert "alice-secret-block" not in b.text and "alice@example.com" not in b.text and "alice-model" not in b.text
-    assert 'data-theme="indigo"' in b.text and 'value="11"' not in b.text
+    assert 'data-theme="arch-editorial"' in b.text and 'value="11"' not in b.text
     assert any(k["term"] == "Sora" for k in client.get("/api/me/keywords").json())
     assert client.get("/api/me/quotas").json() == [] and client.get("/api/me/push").json()["enabled"] is False
     # bob editing his own settings leaves alice's alone
-    client.put("/api/me/theme", json={"palette": "emerald"})
+    client.put("/api/me/theme", json={"palette": "arch-swiss"})
     client.put("/api/me/quotas", json=[{"max_items": 3}])
     client.put("/api/me/push", json={"enabled": True, "time": "21:00", "timezone": "UTC", "channels": {}})
     login(client, "alice")
-    assert client.get("/api/me/theme").json()["palette"] == "rose"
+    assert client.get("/api/me/theme").json()["palette"] == "arch-crt"
     assert client.get("/api/me/push").json()["time"] == "07:30"
     assert sorted(q["max_items"] for q in client.get("/api/me/quotas").json()) == [4, 11]
-    assert 'data-theme="rose"' in client.get("/").text
+    assert 'data-theme="arch-crt"' in client.get("/").text
 
 
 def test_favorites_and_trash_are_per_user(client):
@@ -82,8 +82,8 @@ def test_favorites_and_trash_are_per_user(client):
     assert client.put(f"/api/me/items/{sora.id}/mark", json={"state": "favorite"}).status_code == 404
     assert client.put(f"/api/me/items/{qwen.id}/mark", json={"state": "bogus"}).status_code == 400
     home = client.get("/").text
-    assert "Qwen 3 released today" in home and "★ 已收藏" in home
-    assert "Qwen and Sora compared" not in home and "1 条在回收站" in home
+    assert "Qwen 3 released today" in home and 'aria-pressed="true" title="取消收藏"' in home
+    assert "Qwen and Sora compared" not in home and "本期删了 1 条" in home and 'data-trash="1"' in home
     assert "Qwen 3 released today" in client.get("/favorites").text
     assert "Qwen and Sora compared" in client.get("/trash").text
     states = {i["item_id"]: i["state"] for i in client.get("/api/me/issues/latest").json()["items"]}
@@ -143,7 +143,7 @@ def test_only_http_links_become_hrefs(client):
 def test_theme_and_push_validation(client):
     register(client, "dave")
     assert client.put("/api/me/theme", json={"palette": "neon"}).status_code == 400
-    assert client.get("/api/me/theme").json()["palette"] == "indigo"
+    assert client.get("/api/me/theme").json()["palette"] == "arch-editorial"
     ok = {"enabled": True, "time": "08:00", "timezone": "UTC", "channels": {}}
     assert client.put("/api/me/push", json={**ok, "time": "25:00"}).status_code == 400
     assert client.put("/api/me/push", json={**ok, "timezone": "Mars/Base"}).status_code == 400
@@ -161,5 +161,8 @@ def test_theme_and_push_validation(client):
     got = client.put("/api/me/push", json={**ok, "channels": {"telegram": {"enabled": False, "target": ""}}}).json()
     assert got["channels"]["telegram"]["enabled"] is False and got["channels"]["telegram"]["target"] == ""
     # the login page follows the last used palette via a cookie
-    client.put("/api/me/theme", json={"palette": "amber"})
-    assert 'data-theme="amber"' in client.get("/login").text
+    client.put("/api/me/theme", json={"palette": "taste-moat"})
+    assert 'data-theme="taste-moat"' in client.get("/login").text
+    # v1 palette names still work and map onto the closest v2 theme
+    assert client.put("/api/me/theme", json={"palette": "amber"}).json() == {"palette": "now-playing"}
+    assert 'data-theme="now-playing"' in client.get("/login").text

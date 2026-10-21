@@ -13,7 +13,8 @@ def test_admin_pages_and_api_are_admin_only(client):
     for path in ("/api/admin/sources", "/api/admin/users", "/api/admin/invites", "/api/admin/runs", "/api/admin/registration"):
         assert client.get(path).status_code == 403, path
     assert client.patch("/api/admin/sources/rss:x", json={"enabled": False}).status_code == 403
-    assert "管理" not in client.get("/settings").text.split("<script>")[0].split("</nav>")[0]  # no admin link in the nav
+    page = client.get("/settings").text
+    assert 'href="/admin"' not in page and "管理</div>" not in page  # no 管理 group in the console nav or the avatar menu
     _admin(client)
     r = client.get("/admin")
     assert r.status_code == 200 and "管理后台" in r.text and "erin" in r.text

@@ -1,0 +1,135 @@
+
+<script>
+const PRESETS = {{ llm_presets|tojson }};
+const PROVS = {{ llm_view.providers|tojson }};
+const pf = $("#prov-form"), pst = (t) => { $("#llm-status").textContent = t; };
+function presetOf(id) { return PRESETS.find((p) => p.id === id) || {models: [], base_url: "", key_hint: ""}; }
+function fillPreset(keepBase) {
+  const p = presetOf(pf.preset.value);
+  $("#prov-models").innerHTML = p.models.map((m) => `<option value="${m}">`).join("");
+  pf.base_url.placeholder = p.base_url || "https://your-gateway.example.com/v1";
+  if (!keepBase) pf.base_url.value = p.base_url || "";
+  if (!pf.model.value && p.models.length) pf.model.value = p.models[0];
+  const cur = PROVS.find((x) => String(x.id) === pf.id.value);
+  pf.api_key.placeholder = cur && cur.has_key && cur.preset === pf.preset.value ? `已保存（…${cur.key_last4 || ""}），留空则不改` : (p.needs_key === false ? "本地无需 Key，可留空" : (p.key_hint || "API Key"));
+}
+pf.preset.addEventListener("change", () => { pf.model.value = ""; fillPreset(false); });
+function openForm(p) {
+  pf.hidden = false; pf.reset(); pf.id.value = p ? p.id : "";
+  pf.preset.value = p ? p.preset : "deepseek"; pf.name.value = p ? p.name : ""; pf.model.value = p ? p.model : "";
+  pf.enabled.checked = p ? p.enabled : true; fillPreset(true); pf.base_url.value = p ? (p.base_url || "") : (presetOf(pf.preset.value).base_url || "");
+  pf.scrollIntoView({block: "nearest"});
+}
+function formBody() {
+  const b = {preset: pf.preset.value, model: pf.model.value.trim(), name: pf.name.value.trim(), enabled: pf.enabled.checked};
+  const base = pf.base_url.value.trim(); b.base_url = base === (presetOf(b.preset).base_url || "") ? "" : base;
+  const k = pf.api_key.value.trim(); if (k) b.api_key = k; return b;
+}
+function testMsg(j) { return j.ok ? `连接成功（${j.latency_ms} ms）：${j.reply || ""}` : "连接失败：" + (j.error || j.detail || ""); }
+$("#prov-add").addEventListener("click", () => openForm(null));
+$("#prov-cancel").addEventListener("click", () => { pf.hidden = true; });
+$("#prov-test").addEventListener("click", async () => {
+  pst("测试中…"); const b = formBody(); if (pf.id.value) b.provider_id = parseInt(pf.id.value);
+  delete b.name; delete b.enabled; const [, j] = await call("POST", "/api/me/llm/providers/test", b); pst(testMsg(j));
+});
+pf.addEventListener("submit", async (e) => {
+  e.preventDefault(); const b = formBody(), id = pf.id.value;
+  const [ok, j] = id ? await call("PATCH", `/api/me/llm/providers/${id}`, b) : await call("POST", "/api/me/llm/providers", b);
+  if (ok) location.reload(); else pst("保存失败：" + (j.detail || j.error || ""));
+});
+async function saveOrder() {
+  const ids = [...document.querySelectorAll("#prov-list [data-prov]")].map((el) => parseInt(el.dataset.prov));
+  const [ok, j] = await call("PUT", "/api/me/llm/order", {ids}); if (ok) location.reload(); else pst("排序失败：" + (j.detail || ""));
+}
+$("#prov-list").addEventListener("click", async (e) => {
+  const row = e.target.closest("[data-prov]"); if (!row) return; const id = row.dataset.prov, t = e.target;
+  if (t.dataset.move) { const sib = t.dataset.move === "up" ? row.previousElementSibling : row.nextElementSibling;
+    if (sib) { t.dataset.move === "up" ? sib.before(row) : sib.after(row); saveOrder(); } }
+  else if (t.dataset.edit) openForm(PROVS.find((p) => String(p.id) === id));
+  else if (t.dataset.delProv) { if (confirm("删除这个模型？")) { const [ok] = await call("DELETE", `/api/me/llm/providers/${id}`); if (ok) location.reload(); } }
+  else if (t.dataset.testProv) { const out = row.querySelector("[data-test-result]"); out.textContent = "测试中…";
+    const [, j] = await call("POST", `/api/me/llm/providers/${id}/test`); out.textContent = j.ok ? `✓ ${j.latency_ms} ms` : "✗ " + (j.error || j.detail || ""); }
+});
+$("#prov-list").addEventListener("change", async (e) => {
+  const id = e.target.dataset.enable; if (!id) return;
+  const [ok, j] = await call("PATCH", `/api/me/llm/providers/${id}`, {enabled: e.target.checked}); if (ok) location.reload(); else pst("失败：" + (j.detail || ""));
+});
+let dragged = null;
+$("#prov-list").addEventListener("dragstart", (e) => { dragged = e.target.closest("[data-prov]"); });
+$("#prov-list").addEventListener("dragover", (e) => { e.preventDefault(); const over = e.target.closest("[data-prov]");
+  if (dragged && over && over !== dragged) { const r = over.getBoundingClientRect(); (e.clientY > r.top + r.height / 2) ? over.after(dragged) : over.before(dragged); } });
+$("#prov-list").addEventListener("drop", (e) => { e.preventDefault(); if (dragged) { dragged = null; saveOrder(); } });
+$("#llm-opts").addEventListener("submit", async (e) => {
+  e.preventDefault(); const f = new FormData($("#llm-opts"));
+  const [ok, j] = await call("PUT", "/api/me/llm/options", {retries: parseInt(f.get("retries")), timeout: parseInt(f.get("timeout")), translate_to: f.get("translate_to")});
+  $("#opts-status").textContent = ok ? "已保存" : "保存失败：" + (j.detail || "");
+});
+$("#profiles").addEventListener("submit", async (e) => {
+  e.preventDefault(); const f = new FormData($("#profiles"));
+  const picks = f.getAll("pick").map((n) => ({name: n, threshold: parseFloat(f.get("thr-" + n))}));
+  const [ok, j] = await call("PUT", "/api/me/profiles", picks);
+  $("#prof-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+});
+
+
+document.querySelectorAll("[data-source]").forEach((cb) => cb.addEventListener("change", async () => {
+  const key = cb.dataset.source;
+  const [ok, j] = cb.checked ? await call("PUT", "/api/me/subscriptions", {source: key, enabled: true}) : await call("DELETE", "/api/me/subscriptions/" + key);
+  $("#sub-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+  if (!ok) cb.checked = !cb.checked;
+}));
+$("#apply-default").addEventListener("click", async () => {
+  const [ok, j] = await call("POST", "/api/me/subscriptions/apply-template");
+  if (ok) location.reload(); else $("#sub-status").textContent = "失败：" + (j.error || "");
+});
+document.querySelectorAll(".kw-add").forEach((f) => f.addEventListener("submit", async (e) => {
+  e.preventDefault(); const b = {kind: f.dataset.kind, term: f.term.value.trim()}; if (f.weight) b.weight = parseFloat(f.weight.value);
+  const [ok, j] = await call("POST", "/api/me/keywords", b);
+  if (ok) location.reload(); else $("#kw-status").textContent = "添加失败：" + (j.error || "");
+}));
+document.querySelectorAll("[data-del-kw]").forEach((b) => b.addEventListener("click", async () => {
+  const [ok] = await call("DELETE", "/api/me/keywords/" + b.dataset.delKw); if (ok) b.closest("[data-kw]").remove();
+}));
+$("#add-quota").addEventListener("click", () => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = '<td><input name="module" size="10"></td><td><input name="group_name" size="12"></td><td><input name="max_items" type="number" min="0" max="1000" value="10" style="width:5em"></td><td><input name="categories" size="18"></td><td><button type="button" class="rm-row">删除</button></td>';
+  $("#quota-rows").appendChild(tr);
+});
+$("#quota-rows").addEventListener("click", (e) => { if (e.target.classList.contains("rm-row")) e.target.closest("tr").remove(); });
+$("#quotas").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = [...document.querySelectorAll("#quota-rows tr")].map((tr) => {
+    const v = (n) => tr.querySelector(`[name=${n}]`).value.trim();
+    const cats = v("categories").split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+    return {module: v("module"), group_name: v("group_name"), max_items: parseInt(v("max_items") || "0", 10), categories: cats.length ? cats : null};
+  });
+  const [ok, j] = await call("PUT", "/api/me/quotas", body);
+  $("#quota-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+});
+function pushBody() {
+  const f = $("#push"), v = (n) => f[n].value.trim();
+  const keep = (n, clear) => (f[clear] && f[clear].checked) ? "" : (v(n) || null);  // null = keep stored, "" = clear
+  return {enabled: f.enabled.checked, time: f.time.value, timezone: v("timezone"), channels: {
+    email: {enabled: f["email-enabled"].checked, target: v("email-target")},
+    telegram: {enabled: f["telegram-enabled"].checked, target: v("telegram-target"), token: keep("telegram-token", "telegram-token-clear")},
+    webhook: {enabled: f["webhook-enabled"].checked, target: keep("webhook-target", "webhook-url-clear"), type: v("webhook-type"),
+              mode: v("webhook-mode"), secret: keep("webhook-secret", "webhook-secret-clear"),
+              template: v("webhook-template"), item_template: v("webhook-item_template")}}};
+}
+$("#push").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const [ok, j] = await call("PUT", "/api/me/push", pushBody());
+  $("#push-status").textContent = ok ? "已保存" : "保存失败：" + (j.error || "");
+  if (ok) setTimeout(() => location.reload(), 600);
+});
+document.querySelectorAll("[data-test]").forEach((b) => b.addEventListener("click", async () => {
+  const c = b.dataset.test, out = document.querySelector(`[data-test-status=${c}]`);
+  out.textContent = "保存并发送中…"; b.disabled = true;
+  try {
+    const [ok, j] = await call("PUT", "/api/me/push", pushBody());   // the test uses the saved config, so save the form first
+    if (!ok) { out.textContent = "保存失败：" + (j.error || ""); return; }
+    const [ok2, r] = await call("POST", "/api/me/push/test/" + c);
+    out.textContent = !ok2 ? "无法发送：" + (r.error || "") : r.ok ? "测试消息已发送" : "发送失败：" + (r.error || "");
+  } finally { b.disabled = false; }
+}));
+</script>

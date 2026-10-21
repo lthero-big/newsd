@@ -1,0 +1,59 @@
+/* Shared calendar. Theme vars aliased to the app tokens. */
+.calbox{--fg:var(--ink);--mu:var(--muted);--card:var(--surface);--font-d:var(--font-display)}
+.calbox{position:relative;width:min(100%,440px);margin-right:min(230px,24vw);padding:30px 0 18px;isolation:isolate}
+.roll{position:absolute;z-index:-1;left:100%;top:50%;translate:-34% -50%;font:900 clamp(170px,24vw,250px)/1 var(--font-d);letter-spacing:-.06em;pointer-events:none;user-select:none;display:grid;font-variant-numeric:tabular-nums}
+.rl{grid-area:1/1;display:inline-flex;justify-content:center}.rc{display:inline-block;height:1em;overflow:hidden}.rs{display:flex;flex-direction:column}.rs i{font-style:normal;height:1em;line-height:1}
+.rl.f .rs i{background:linear-gradient(160deg,var(--accent),color-mix(in srgb,var(--accent) 35%,var(--remix,var(--fg))) 55%,transparent 95%);-webkit-background-clip:text;background-clip:text;color:transparent;opacity:.55}
+.rl.o{translate:.045em .035em}.rl.o .rs i{color:transparent;-webkit-text-stroke:2px color-mix(in srgb,var(--fg) 32%,transparent)}
+.rm{position:absolute;right:6%;top:-16px;font:700 12px/1 ui-monospace,monospace;letter-spacing:.5em;color:var(--mu);white-space:nowrap}
+.cal{position:relative;background:linear-gradient(color-mix(in srgb,var(--card) 88%,transparent),color-mix(in srgb,var(--card) 88%,transparent)),color-mix(in srgb,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.3);backdrop-filter:blur(14px) saturate(1.3);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px 12px;box-shadow:var(--shadow);user-select:none}
+.ch{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ct{flex:1;border:0;background:none;color:var(--fg);font:700 14px/1.2 inherit;font-variant-numeric:tabular-nums;cursor:pointer;padding:6px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.ct:hover{background:color-mix(in srgb,var(--fg) 6%,transparent)}.cv{font:500 11px/1 inherit;color:var(--mu);display:inline-flex;align-items:center;gap:3px}.cv svg{transition:transform .35s cubic-bezier(.34,1.56,.64,1)}.cal.open .cv svg{transform:rotate(180deg)}
+.cm,.cj,.call{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:min(var(--radius),999px);font:inherit;cursor:pointer}
+.cm{width:30px;height:30px;font-size:16px;flex:none}.cm:hover,.cj:not(:disabled):hover,.call:hover{border-color:var(--accent)}
+.cw,.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}.cw span{font-size:11px;color:var(--mu);padding:2px 0}
+.cgw{overflow:hidden;border-radius:min(var(--radius),12px)}
+.cd{position:relative;height:42px;border:0;border-radius:min(var(--radius),12px);background:none;color:var(--mu);font:inherit;font-size:13px;font-variant-numeric:tabular-nums;cursor:pointer;display:grid;place-items:center;transition:background .2s,color .2s,transform .25s cubic-bezier(.34,1.56,.64,1)}
+.cd.out{opacity:.4}.cd:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}.cd.has{color:var(--fg);font-weight:700}.cd.today span{box-shadow:0 1.5px 0 var(--fg)}
+.cd .dots{position:absolute;bottom:4px;left:0;right:0;display:flex;gap:2px;justify-content:center}.cd .dots b{width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.cd.sel{background:var(--accent);color:#fff;transform:scale(.94)}.cd.sel .dots b{background:#fff}
+.cd:focus-visible,.cm:focus-visible,.cj:focus-visible,.call:focus-visible,.ct:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cq{display:flex;gap:6px;margin-top:8px}.cq button{flex:1;padding:6px 4px;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.cq button:disabled{opacity:.4;cursor:default}.call.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.fsec{max-width:1180px;margin:0 auto}.fsec[hidden]{display:none}.fh{max-width:1180px;margin:18px auto 0;padding:0 28px;font-size:16px;display:flex;align-items:baseline;gap:8px}.fh .n{font:600 12px ui-monospace,monospace;color:var(--mu)}.fh small{font-size:11px;color:var(--mu);font-weight:400}
+.rgrid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.rlinks{font:12px ui-monospace,monospace;color:var(--mu);margin:4px 0}
+.tfavs{max-width:1180px;margin:0 auto;padding:8px 28px 30px;display:flex;flex-wrap:wrap;gap:10px}.tfav{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:min(var(--radius),999px);background:var(--card)}.tfav .stars{margin:0}.tfav .stars button{font-size:15px}.tfav .fav{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:99px;width:26px;height:26px;cursor:pointer}.tfav .src{margin:0}.tn2{font-weight:600;font-size:13px;white-space:nowrap}
+.linkish{border:0;background:none;color:var(--accent);font:inherit;cursor:pointer;text-decoration:underline}
+@media(max-width:760px){.fbar{overflow-x:clip}.rm{display:none}.calbox{margin-right:0;padding:84px 0 14px}.roll{font-size:clamp(150px,50vw,220px);left:auto;right:-.04em;top:0;translate:0 -.12em}}
+@media(max-width:560px){.calbox.open{z-index:41;height:calc(var(--wk) + 98px)}.calbox.open .cal{position:absolute;top:84px;left:-4px;right:-4px;z-index:40;background:linear-gradient(var(--card),var(--card)),var(--bg);box-shadow:0 18px 50px -12px rgba(0,0,0,.45),var(--shadow)}}
+@media(max-width:360px){.cal{padding:8px}.cd{font-size:12px;height:38px}.cq button{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.cgw,.cg{transition:none!important}}
+/* ---- issue pages: shared calendar (assets/calendar.js + issue-cal.js) ---- */
+.dd-cal .pager{display:none}
+.ical{margin-top:14px;max-width:440px}.ical .calbox{margin-right:0;width:100%}
+.cd[aria-disabled="true"]{cursor:default;opacity:.55}.cd[aria-disabled="true"]:hover{background:none}
+@media(min-width:761px){.ical{max-width:none}.ical .calbox{width:440px}}
+@media(max-width:760px){.ical{overflow-x:clip;margin-inline:-4px;padding-inline:4px}}
+.calbox .roll{view-transition-name:dd-date}
+.cal{border-width:var(--border-w,1px)}
+.ical{margin-top:40px;overflow-x:clip;padding-right:4px}
+.fcal{margin:6px 0 18px;overflow-x:clip}
+.fcal .calbox{margin-right:0;width:min(100%,440px)}
+@media(min-width:761px){.fcal{padding-right:240px}.fcal .calbox{margin-right:min(230px,24vw)}}
+@media(max-width:760px){.fcal{margin-inline:-4px;padding-inline:4px}.fcal .roll{font-size:clamp(150px,50vw,220px);left:auto;right:-.04em;top:0;translate:0 -.12em}}
+.cd.sel{color:var(--accent-ink,#fff)}
+@media(max-width:760px){#favs{grid-template-columns:minmax(0,1fr)!important}#favs>.card{min-width:0;max-width:100%}}
+@media(max-width:760px){.ical{margin-top:0}}
+/* ---- hero calendar — the digits sit in a band at the top of .calbox and the card overlaps
+   their lower part. The art never leaves .ical (no clipping, never touches .proof or .hero-art). DESIGN-RULES §5. ---- */
+.ical{margin-top:28px;max-width:440px;overflow-x:clip;padding:0}
+.ical .calbox{width:100%;margin:0;padding:clamp(96px,11vw,148px) 0 0}
+.ical .roll{left:50%;right:auto;top:0;translate:-50% 0;font-size:clamp(150px,17vw,240px)}
+.ical .rm{display:none}
+@media(min-width:761px){.ical .calbox{width:100%}}
+@media(max-width:899px){.ical .calbox{padding-top:clamp(80px,26vw,120px)}.ical .roll{font-size:clamp(120px,38vw,180px)}}
+@media(max-width:760px){.ical{margin-top:24px}}
+@media(max-width:560px){.ical .calbox.open .cal{top:clamp(80px,26vw,120px)}.ical .calbox.open{height:calc(var(--wk) + clamp(80px,26vw,120px))}}
+/* selected day: the "today" underline collided with the dots and read as a caret on the accent cell */
+.cd.sel span{box-shadow:none}

@@ -1,0 +1,26 @@
+
+<script>
+const st = (t) => { $("#st").textContent = t; };
+const form = (data) => fetch(data.url, {method: "POST", headers: {"content-type": "application/x-www-form-urlencoded"}, body: new URLSearchParams(data.body)});
+$("#reg-save").addEventListener("click", async () => {
+  const r = await form({url: "/api/admin/registration", body: {mode: $("#reg").value}}); st(r.ok ? "注册方式已保存" : "保存失败");
+});
+$("#new-invite").addEventListener("click", async () => {
+  const r = await fetch("/api/admin/invites", {method: "POST"}); const j = await r.json();
+  if (r.ok) { $("#invite-code").textContent = j.invite; st("邀请码只显示这一次，请立即复制"); }
+});
+document.querySelectorAll("[data-del-invite]").forEach((b) => b.addEventListener("click", async () => {
+  const [ok] = await call("DELETE", "/api/admin/invites/" + b.dataset.delInvite); if (ok) location.reload();
+}));
+document.querySelectorAll("[data-user]").forEach((b) => b.addEventListener("click", async () => {
+  const r = await form({url: `/api/admin/users/${b.dataset.user}/active`, body: {active: b.dataset.active}}); if (r.ok) location.reload(); else st("操作失败");
+}));
+document.querySelectorAll("[data-src]").forEach((cb) => cb.addEventListener("change", async () => {
+  const [ok] = await call("PATCH", "/api/admin/sources/" + cb.dataset.src, {enabled: cb.checked}); st(ok ? "已保存" : "保存失败"); if (!ok) cb.checked = !cb.checked;
+}));
+$("#add-src").addEventListener("submit", async (e) => {
+  e.preventDefault(); const f = new FormData(e.target);
+  const [ok, j] = await call("POST", "/api/admin/sources", {id: f.get("id").trim(), name: f.get("name").trim(), url: f.get("url").trim()});
+  if (ok) location.reload(); else st("添加失败：" + (j.error || JSON.stringify(j.detail || "")));
+});
+</script>

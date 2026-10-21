@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% from "_card.html" import card %}{% block title %}收藏 · newsd{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/v2/nd-cal.css?v={{ asset_v }}">{% endblock %}
+{% block reading %}<main class="wrap">
+ <section class="fav-head"><div><div class="kicker"><span class="dot"></span><span>云端收藏 · 已同步到你的账号</span></div><h1>收藏<span>.</span></h1><p class="muted" style="margin:8px 0 0;max-width:46ch">你收藏的新闻，按收藏日期分组。日历上有点的日子有收藏；点某天只看那天，点「全部」回到全部。往期日报在 <a href="/calendar" style="color:var(--accent)">归档</a> 页。</p></div>
+  <div class="ical" style="margin:0;width:440px;max-width:100%"><div class="calbox"><div class="roll" role="img"></div><div class="cal"></div></div></div></section>
+ <div class="filters">
+  <select class="input" id="fmod" aria-label="模块" style="width:auto"><option value="">全部模块</option>{% for m, label, sub in modules %}<option value="{{ m }}">{{ label }}</option>{% endfor %}</select>
+  <select class="input" id="ftag" aria-label="标签" style="width:auto"><option value="">全部标签</option>{% for t in tags %}<option>{{ t }}</option>{% endfor %}</select>
+  <div class="seg" role="radiogroup" aria-label="排序" id="sort"><button type="button" role="radio" aria-pressed="true" aria-checked="true" data-s="fav">按收藏时间</button><button type="button" role="radio" aria-pressed="false" aria-checked="false" data-s="pub">按发布日期</button></div>
+  <label class="row muted" style="gap:8px;font-size:13px"><button class="switch" type="button" role="switch" aria-checked="false" id="incLike" aria-label="同时列出点赞的"></button>同时列出 ♥ 点赞的</label>
+  <span style="flex:1"></span><input class="input" id="fq" type="search" placeholder="搜索收藏…" style="width:220px">
+ </div>
+ <div class="fav-grid" id="favs">{% for it in rows %}{{ card(it, "fav-card" ~ ("" if it.state == "favorite" else " liked-only"), False) }}{% endfor %}</div>
+ <p class="empty" id="empty"{% if favorites_n %} hidden{% endif %}>{% if favorites_n %}没有符合筛选的收藏。{% else %}还没有收藏，去 <a href="/" style="color:var(--accent)">最新一期</a> 点卡片上的收藏图标吧。{% endif %}</p>
+</main>{% endblock %}
+{% block script %}<script src="/static/v2/nd-calendar.js?v={{ asset_v }}"></script><script src="/static/v2/favorites.js?v={{ asset_v }}"></script>{% endblock %}

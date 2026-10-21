@@ -1,30 +1,35 @@
+{# v2 shell (DEPTAI-216 item 3): reading area (日报 / 收藏 / 归档 / 回收站) and the separate 设置与管理 console. -#}
+{% import "_icons.html" as ic with context %}{% set IC = ic.IC -%}
+{% set area = area|default("auth") -%}
 <!doctype html>
-<html lang="zh-CN" data-theme="{{ palette or 'indigo' }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN" data-theme="{{ theme }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%228%22 fill=%22%23b3261e%22/%3E%3C/svg%3E">
 <title>{% block title %}newsd{% endblock %}</title>
-<link rel="stylesheet" href="/static/app.css"></head>
-<body data-page="{{ page or '' }}">
-{% if user %}<nav class="top"><a class="brand" href="/">newsd</a>
-{% for href, label, key in [("/", "今日", "home"), ("/calendar", "日历", "calendar"), ("/favorites", "收藏", "favorites"), ("/trash", "回收站", "trash"), ("/settings", "设置", "settings")] %}<a href="{{ href }}"{% if nav == key %} class="on"{% endif %}>{{ label }}</a>{% endfor %}
-{% if user.role == "admin" %}<a href="/admin"{% if nav == "admin" %} class="on"{% endif %}>管理</a>{% endif %}
-<form method="post" action="/logout"><span class="meta">{{ user.username }}</span> <button>退出</button></form></nav>{% endif %}
-{% block body %}{% endblock %}
-<script>
-const $ = (s, r = document) => r.querySelector(s);
-async function call(method, url, body) {
-  const r = await fetch(url, {method, headers: {"content-type": "application/json"}, body: body === undefined ? undefined : JSON.stringify(body)});
-  let j = {}; try { j = await r.json(); } catch (e) {}
-  return [r.ok, j];
-}
-document.addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-mark]"); if (!b) return;
-  const card = b.closest("[data-item]"), id = card.dataset.item;
-  const want = b.dataset.mark === "clear" ? null : b.dataset.mark;
-  const [ok] = await call("PUT", `/api/me/items/${id}/mark`, {state: want});
-  if (!ok) return;
-  if (want === "trash" || (want === null && document.body.dataset.page !== "issue")) card.remove();
-  else if (want === "favorite") { b.classList.add("on"); b.dataset.mark = "clear"; b.textContent = "★ 已收藏"; }
-  else { b.classList.remove("on"); b.dataset.mark = "favorite"; b.textContent = "☆ 收藏"; }
-});
-</script>
+<link rel="stylesheet" href="/static/v2/theme.css?v={{ asset_v }}"><link rel="stylesheet" href="/static/v2/app.css?v={{ asset_v }}">
+{% block css %}{% endblock %}<link rel="stylesheet" href="/static/v2/nd.css?v={{ asset_v }}"></head>
+<body data-page="{{ page or '' }}" data-area="{{ area }}" data-fb="{{ ui.feedback }}" data-motion="{{ ui.motion }}" data-trash="{{ trash_n or 0 }}"{% if key %} data-key="{{ key }}"{% endif %}>
+{% macro tsw() %}<div class="tsw"><button class="orb cur" type="button" aria-haspopup="true" aria-expanded="false" aria-label="切换主题（T 键循环）"><i></i></button>
+<div class="dock" role="menu" aria-label="主题" hidden>{% for id, t in themes.items() %}<button class="orb" type="button" role="menuitemradio" aria-checked="{{ 'true' if id == theme else 'false' }}" data-t="{{ id }}" data-name="{{ t[0] }}" aria-label="{{ t[0] }}" style="--ob:{{ t[1] }};--oa:{{ t[2] }}"><i></i></button>{% endfor %}</div></div>{% endmacro %}
+{% macro modebtn() %}<button class="ibtn mode-btn" type="button" aria-label="切换浅色 / 深色"><span class="mi mi-sun">{{ IC.sun|safe }}</span><span class="mi mi-moon">{{ IC.moon|safe }}</span></button>{% endmacro %}
+{% macro acct() %}<div class="umenu"><button class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" title="{{ user.username }}">{{ user.username[:2]|upper }}</button><div class="umenu-pop" role="menu" hidden>
+ <div class="who"><b>{{ user.username }}</b><small>{{ "管理员" if user.role == "admin" else "成员" }}</small></div>
+ {% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k in items %}<a role="menuitem" href="{{ h }}">{{ t }}</a>{% endfor %}{% endif %}{% endfor %}
+ <hr><form method="post" action="/logout" class="logout"><button role="menuitem" type="submit">退出登录</button></form></div></div>{% endmacro %}
+{% if user and area == "read" %}
+<header class="top"><i class="prog" aria-hidden="true"></i><div class="wrap"><a class="logo" href="/" aria-label="newsd 首页"><span class="glyph">N</span><span class="word">news<b>d</b></span></a>
+ <nav class="nav" aria-label="阅读">{% for h, t, k, i in read_nav %}<a href="{{ h }}"{% if k == page %} aria-current="page"{% endif %}>{{ t }}</a>{% endfor %}</nav>
+ {{ tsw() }}<div class="right">{{ modebtn() }}<a class="ibtn trash-btn" href="/trash" title="回收站" aria-label="回收站"{% if page == "trash" %} aria-current="page"{% endif %}>{{ IC.del|safe }}<b class="badge" hidden></b></a><a class="ibtn gear-btn" href="/settings" title="设置与管理" aria-label="设置与管理">{{ IC.gear|safe }}</a>{{ acct() }}</div></div></header>
+{% block reading %}{% endblock %}
+<nav class="tabbar" aria-label="底部导航">{% for h, t, k, i in read_nav %}<a href="{{ h }}"{% if k == page %} aria-current="page"{% endif %}><span>{{ i }}</span>{{ t }}</a>{% endfor %}<a href="/trash"{% if page == "trash" %} aria-current="page"{% endif %}><span>⌫</span>回收站</a><a href="/settings"><span>⚙</span>设置</a></nav>
+{% elif user and area == "console" %}
+<header class="top ctop"><div class="wrap"><a class="logo" href="/" aria-label="返回阅读"><span class="glyph">N</span><span class="word">news<b>d</b></span></a><span class="carea">设置与管理</span>
+ <a class="btn sm ghost back" href="/">← 返回阅读</a>{{ tsw() }}<div class="right">{{ modebtn() }}{{ acct() }}</div></div></header>
+<div class="console wrap"><aside class="cside" aria-label="设置与管理">{% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k in items %}<a href="{{ h }}" data-k="{{ k }}"{% if k == page %} aria-current="page"{% endif %}>{{ t }}</a>{% endfor %}{% endif %}{% endfor %}</aside>
+<main>{% block console %}{% endblock %}</main></div>
+{% else %}{% block auth %}{% endblock %}{% endif %}
+<script>window.ND_CFG={user:{{ (user.username if user else none)|tojson }},role:{{ (user.role if user else none)|tojson }}};
+const $=(s,r=document)=>r.querySelector(s);
+async function call(method,url,body){const r=await fetch(url,{method,headers:{"content-type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});let j={};try{j=await r.json()}catch(e){}return [r.ok,j]}</script>
+<script src="/static/v2/themes.js?v={{ asset_v }}"></script><script src="/static/v2/nd.js?v={{ asset_v }}"></script>
 {% block script %}{% endblock %}
 </body></html>

@@ -4,33 +4,45 @@ from __future__ import annotations
 
 import calendar as _cal
 import re
-from datetime import date
+from collections import Counter
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .admin import admin_runs, source_rows
 from .auth import current_user, get_db
-from .issues import issue_view
+from .feedback import FEATURE_W, HALF_LIFE_DAYS, TRASH_DAYS, W_DELETE, W_DISLIKE, learn_settings, trash_items
+from .issues import issue_view, item_cards
 from .llm import keys as llm_keys
 from .llm.client import base_url
 from .llm.presets import REGIONS, VISIBLE
 from .llm.profiles import all_profiles, get_picks
-from .marks import marked_items
-from .models import Issue, Keyword, Quota, Source, Subscription
+from .marks import trash_count
+from .models import Issue, IssueItem, ItemFeedback, ItemMark, PoolItem, Keyword, Quota, Source, Subscription
 from .onboarding import is_onboarded, preset_groups
 from .registration import get_registration_mode
 from .settings import get_settings
 from .push.prefs import WEBHOOK_TYPES, get_push
-from .userprefs import PALETTES, THEME_COOKIE, get_palette
+from .userprefs import DEFAULT_PALETTE, PALETTES, THEME_COOKIE, THEMES, get_palette, get_ui, normalize_theme
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "web" / "templates"))
 router = APIRouter()
-MODULES = (("model", "模型"), ("opensource", "开源"), ("community", "社区"), ("news", "资讯"))
+MODULES = (("model", "模型新闻", "新模型、版本发布与榜单"), ("opensource", "开源项目发现", "新仓库、热门模型权重与工具发布"),
+           ("community", "社区新闻", "HN、Reddit 与 X 上的讨论"), ("news", "资讯", "媒体与博客报道"))
+MODULE_NAMES = {m: label for m, label, _sub in MODULES}
+READ_NAV = (("/", "日报", "issue", "◐"), ("/favorites", "收藏", "favorites", "♡"), ("/calendar", "归档", "calendar", "▦"))
+# (group, [(href, label, page key)], admin only). Item 3b / 3c split 订阅源 / 模型 / 管理 into their own pages.
+CONSOLE_NAV = (("个人", (("/settings", "偏好与主题", "settings"), ("/settings#learn", "学到的偏好", "learn"),
+                         ("/settings#more", "订阅、模型与推送", "more"), ("/settings#acct", "账号", "acct")), False),
+               ("管理", (("/admin", "概览", "admin"),), True))
+WEEK = "一二三四五六日"
+_STATIC = Path(__file__).parent / "web" / "static" / "v2"
+ASSET_V = format(int(max((f.stat().st_mtime for f in _STATIC.iterdir()), default=0)), "x")
 KIND_LABELS = {"rss": "RSS", "reddit": "Reddit", "rsshub": "RSSHub", "x_query": "X 搜索", "x_account": "X 账号", "plugin": "聚合源"}
 
 
@@ -44,9 +56,13 @@ templates.env.filters["safe_url"] = _safe_url
 
 
 def render(request: Request, name: str, user, db, status_code: int = 200, **ctx):
-    palette = get_palette(db, user.id) if user is not None else request.cookies.get(THEME_COOKIE)
-    return templates.TemplateResponse(request, name, {"user": user, "palette": palette if palette in PALETTES else None, **ctx},
-                                      status_code=status_code)
+    if user is not None:
+        theme, ui, trash_n = get_palette(db, user.id), get_ui(db, user.id), trash_count(db, user.id)
+    else:
+        theme, ui, trash_n = normalize_theme(request.cookies.get(THEME_COOKIE)) or DEFAULT_PALETTE, {"feedback": "both", "motion": "on"}, 0
+    base = {"user": user, "palette": theme, "theme": theme, "themes": THEMES, "ui": ui, "trash_n": trash_n, "read_nav": READ_NAV,
+            "console_nav": CONSOLE_NAV, "asset_v": ASSET_V, "modules": MODULES}
+    return templates.TemplateResponse(request, name, base | ctx, status_code=status_code)
 
 
 def login_redirect():
@@ -69,26 +85,48 @@ def issue_page(key: str, request: Request, user=Depends(current_user), db=Depend
     return _issue_page(request, user, db, key)
 
 
+def _day_counts(db, user_id: int) -> dict[str, int]:
+    return {k: (stats or {}).get("items_out", 0) for k, stats in db.execute(select(Issue.key, Issue.stats).where(Issue.user_id == user_id))
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", k)}
+
+
 def _issue_page(request, user, db, key: str | None):
     q = select(Issue).where(Issue.user_id == user.id)
     issue = db.scalar(q.order_by(Issue.key.desc()).limit(1) if key is None else q.where(Issue.key == key))
     keys = list(db.scalars(select(Issue.key).where(Issue.user_id == user.id).order_by(Issue.key)))
-    view = groups = prev_key = next_key = None
-    trashed = 0
+    view = groups = prev_key = next_key = feature = headline = None
+    trashed = n_down = n_sources = 0
+    kicker, date_parts, tags = "", None, []
     if issue is not None:
         view = issue_view(db, issue)
-        shown = [i for i in view["items"] if i["state"] != "trash"]
-        trashed = len(view["items"]) - len(shown)
+        shown = [i for i in view["items"] if i["state"] not in ("trash", "purged")]
+        trashed = sum(1 for i in view["items"] if i["state"] == "trash")
         view["items"] = shown
-        groups = [(m, label, [i for i in shown if i["module"] == m]) for m, label in MODULES]
-        groups += [(m, m, [i for i in shown if i["module"] == m]) for m in dict.fromkeys(i["module"] for i in shown)
-                   if m not in dict(MODULES)]
-        groups = [g for g in groups if g[2]]
+        mods = list(MODULES) + [(m, m, "") for m in dict.fromkeys(i["module"] for i in shown) if m not in MODULE_NAMES]
+        groups = [(m, label, sub, [i for i in shown if i["module"] == m]) for m, label, sub in mods]
+        groups = [g for g in groups if g[3]]
         at = keys.index(issue.key)
         prev_key = keys[at - 1] if at > 0 else None
         next_key = keys[at + 1] if at + 1 < len(keys) else None
-    return render(request, "issue.html", user, db, status_code=200 if issue or key is None else 404, nav="home", page="issue",
-                  issue=view, key=key, groups=groups, prev_key=prev_key, next_key=next_key, trashed=trashed)
+        n_sources = len({s for i in shown for s in i["sources"][:1]})
+        n_down = sum(1 for i in shown if i["ranked_down"])
+        # headline / feature card: prefer real headlines over bare release tags like "b11787"
+        good = [i for i in shown if not i["ranked_down"] and len(i["title_translated"] or i["title"]) >= 16] or shown
+        headline = good[0] if good else None
+        feature = next((i for i in good if i is not headline and (i["summary_translated"] or i["summary"])),
+                       next((i for i in good if i is not headline), None))
+        tags = Counter(i["group"] for i in shown if i.get("group")).most_common(8)
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", issue.key):
+            d = date.fromisoformat(issue.key)
+            date_parts = [issue.key[:4], issue.key[5:7], issue.key[8:]]
+            when = "今天" if d == date.today() else "周" + WEEK[d.weekday()]
+        else:
+            when = issue.key
+        kicker = f"{when} · {len(shown)} 条 · {n_sources} 个来源" + (f" · AI：{view['model']}" if view.get("model") else " · 规则排序")
+    return render(request, "issue.html", user, db, status_code=200 if issue or key is None else 404, area="read", page="issue",
+                  issue=view, key=key or (issue.key if issue else None), groups=groups, prev_key=prev_key, next_key=next_key,
+                  trashed=trashed, n_down=n_down, n_sources=n_sources, feature=feature, headline=headline, tags=tags, kicker=kicker,
+                  date_parts=date_parts, day_counts=_day_counts(db, user.id))
 
 
 @router.get("/calendar", response_class=HTMLResponse)
@@ -108,31 +146,61 @@ def calendar_page(request: Request, month: str | None = None, user=Depends(curre
     in_month = {c["key"] for c in cells if c}
     others = sorted(((k, n) for k, n in issues.items() if k not in in_month and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", k)),
                     reverse=True)
-    return render(request, "calendar.html", user, db, nav="calendar", page="calendar", month=f"{y:04d}-{m:02d}", cells=cells,
-                  issues=issues, others=others, prev_month=f"{pm[0]:04d}-{pm[1]:02d}", next_month=f"{nm[0]:04d}-{nm[1]:02d}")
+    marked = {k for k, in db.execute(
+        select(Issue.key).join(IssueItem, IssueItem.issue_id == Issue.id).where(Issue.user_id == user.id).where(
+            IssueItem.item_id.in_(select(ItemMark.item_id).where(ItemMark.user_id == user.id, ItemMark.state == "favorite"))
+            | IssueItem.item_id.in_(select(ItemFeedback.item_id).where(ItemFeedback.user_id == user.id, ItemFeedback.vote == 1))).distinct())}
+    heads = {k: t for k, t in db.execute(select(Issue.key, func.coalesce(IssueItem.title_translated, PoolItem.title))
+                                         .join(IssueItem, IssueItem.issue_id == Issue.id).join(PoolItem, PoolItem.id == IssueItem.item_id)
+                                         .where(Issue.user_id == user.id, IssueItem.rank == 0))}
+    listing = [(k, n, heads.get(k)) for k, n in sorted(issues.items(), reverse=True)[:120]]
+    in_month_keys = sorted((k for k in in_month if k in issues), reverse=True)
+    sel = today.isoformat() if today.isoformat() in issues and today.isoformat() in in_month else (in_month_keys[0] if in_month_keys else None)
+    return render(request, "calendar.html", user, db, area="read", page="calendar", month=f"{y:04d}-{m:02d}", cells=cells,
+                  issues=issues, others=others, prev_month=f"{pm[0]:04d}-{pm[1]:02d}", next_month=f"{nm[0]:04d}-{nm[1]:02d}",
+                  today=today.isoformat(), sel=sel, marked=marked, listing=listing)
 
 
 @router.get("/favorites", response_class=HTMLResponse)
 def favorites_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
     if user is None:
         return login_redirect()
-    return render(request, "marks.html", user, db, nav="favorites", page="favorites", title="收藏",
-                  rows=marked_items(db, user.id, "favorite"), hint="你在日报里收藏的内容。", empty="还没有收藏。在日报里点“☆ 收藏”。")
+    favs = {i: at for i, at in db.execute(select(ItemMark.item_id, ItemMark.created_at)
+                                          .where(ItemMark.user_id == user.id, ItemMark.state == "favorite")
+                                          .order_by(ItemMark.created_at.desc(), ItemMark.id.desc()))}
+    hidden = set(db.scalars(select(ItemMark.item_id).where(ItemMark.user_id == user.id, ItemMark.state.in_(("trash", "purged")))))
+    liked = [i for i in db.scalars(select(ItemFeedback.item_id).where(ItemFeedback.user_id == user.id, ItemFeedback.vote == 1)
+                                   .order_by(ItemFeedback.updated_at.desc())) if i not in favs and i not in hidden]
+    rows = item_cards(db, user.id, list(favs) + liked)
+    for r in rows:
+        at = favs.get(r["item_id"])
+        r["marked_at"] = at.isoformat() if at else None
+    tags = sorted({t for r in rows for t in ([r["group"]] if r.get("group") else []) + r["matched"][:3]})
+    return render(request, "favorites.html", user, db, area="read", page="favorites", rows=rows, tags=tags[:40],
+                  favorites_n=sum(1 for r in rows if r["state"] == "favorite"))
 
 
 @router.get("/trash", response_class=HTMLResponse)
 def trash_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
     if user is None:
         return login_redirect()
-    return render(request, "marks.html", user, db, nav="trash", page="trash", title="回收站",
-                  rows=marked_items(db, user.id, "trash"), hint="从日报里移除的内容，点“恢复”放回去。", empty="回收站是空的。")
+    rows = trash_items(db, user.id)
+    cards = {c["item_id"]: c for c in item_cards(db, user.id, [r["item_id"] for r in rows])}
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for r in rows:
+        c = cards.get(r["item_id"], {})
+        r["source"] = (c.get("sources") or [None])[0]
+        r["source_cat"], r["key"] = c.get("source_cat", "rss"), c.get("key")
+        left = datetime.fromisoformat(r["expires_at"]) - now
+        r["days_left"] = max(0, left.days + (1 if left.seconds else 0))
+    return render(request, "trash.html", user, db, area="read", page="trash", rows=rows, trash_days=TRASH_DAYS)
 
 
 @router.get("/welcome", response_class=HTMLResponse)
 def welcome_page(request: Request, user=Depends(current_user), db=Depends(get_db)):
     if user is None:
         return login_redirect()
-    return render(request, "welcome.html", user, db, nav="", page="welcome", groups=preset_groups(db))
+    return render(request, "welcome.html", user, db, page="welcome", groups=preset_groups(db))
 
 
 @router.get("/settings", response_class=HTMLResponse)
@@ -150,7 +218,9 @@ def settings_page(request: Request, user=Depends(current_user), db=Depends(get_d
         kws.setdefault(k.kind, []).append({"id": k.id, "term": k.term, "weight": k.weight})
     quotas = [{"module": q.module, "group_name": q.group_name, "max_items": q.max_items, "categories": q.categories or []}
               for q in db.scalars(select(Quota).where(Quota.user_id == user.id).order_by(Quota.module, Quota.group_name))]
-    return render(request, "settings.html", user, db, nav="settings", page="settings", llm_presets=llm_presets,
+    learn = learn_settings(db, user.id)
+    weights = {"delete": W_DELETE, "dislike": W_DISLIKE, **FEATURE_W, "half_life": HALF_LIFE_DAYS}
+    return render(request, "settings.html", user, db, area="console", page="settings", learn=learn, w=weights, llm_presets=llm_presets,
                   llm_regions=REGIONS, llm_view=llm_keys.overview(db, user.id), langs=[("zh", "简体中文"), ("en", "English"), ("ja", "日本語")],
                   profiles=list(all_profiles().values()), picked=picked, palettes=PALETTES, sources=list(by_kind.items()),
                   keywords=kws, quotas=quotas, push=get_push(db, user.id), webhook_types=WEBHOOK_TYPES,
@@ -167,7 +237,7 @@ def admin_page(request: Request, user=Depends(current_user), db=Depends(get_db))
     from .admin_runs import recent_runs
     from .push.api import recent_deliveries
     from .worker import run_view
-    return render(request, "admin.html", user, db, nav="admin", page="admin", mode=get_registration_mode(db),
+    return render(request, "admin.html", user, db, area="console", page="admin", mode=get_registration_mode(db),
                   invites=admin_invites(user, db), users=admin_users(user, db), sources=source_rows(db, 30), days=30,
                   runs=admin_runs(30, user, db), worker_runs=[run_view(r) for r in recent_runs(db, 20)],
                   push_deliveries=recent_deliveries(db, 50))

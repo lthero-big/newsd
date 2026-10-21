@@ -1,21 +1,37 @@
-{% extends "base.html" %}{% from "_item.html" import card %}{% block title %}{{ key or "今日" }} · newsd{% endblock %}
-{% block body %}<main>
-<div class="pager"><span>{% if prev_key %}<a href="/issue/{{ prev_key }}">← {{ prev_key }}</a>{% endif %}</span>
-<span>{% if next_key %}<a href="/issue/{{ next_key }}">{{ next_key }} →</a>{% endif %}</span></div>
-{% if issue %}
-<h1>{{ issue.key }} 日报 <small class="meta">{{ issue["items"]|length }} 条 · {{ "AI：" ~ issue.model if issue.model else "规则排序" }}{% if trashed %} · <a href="/trash">{{ trashed }} 条在回收站</a>{% endif %}</small></h1>
-{% for mod, label, rows in groups %}<h3>{{ label }}（{{ rows|length }}）</h3>{% for it in rows %}{{ card(it) }}{% endfor %}{% endfor %}
-{% if not groups %}<p class="empty">这一期没有符合你关键词和配额的内容。去<a href="/settings">设置</a>调整订阅或关键词。</p>{% endif %}
+{% extends "base.html" %}{% from "_card.html" import card, acts, data %}
+{% block title %}{{ (issue.key ~ " · ") if issue else "" }}日报 · newsd{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/v2/nd-cal.css?v={{ asset_v }}">{% endblock %}
+{% block reading %}<main class="wrap">
+{% if issue %}{% set its = issue["items"] %}
+ <section class="nd-hero">
+  <div>
+   <div class="kicker"><span class="dot"></span><span>{{ kicker }}</span></div>
+   <h1 class="nd-date">{% if date_parts %}{{ date_parts|join("<i>.</i>"|safe) }}{% else %}{{ issue.key }}{% endif %}</h1>
+   {% if headline %}<a class="nd-head" href="#i-{{ headline.item_id }}" data-scroll="i-{{ headline.item_id }}">{{ headline.title_translated or headline.title }}</a>{% endif %}
+   <div class="nd-cta"><a class="btn primary" href="#mods" data-scroll="mods">从头开始读 ↓</a>{% if prev_key %}<a class="btn" href="/issue/{{ prev_key }}" data-dir="prev">← 上一期</a>{% endif %}{% if next_key %}<a class="btn" href="/issue/{{ next_key }}" data-dir="next">下一期 →</a>{% endif %}</div>
+   <div class="proof"><div><b id="pN">{{ its|length }}</b><span>本期条数</span></div><div><b>{{ n_sources }}</b><span>来源</span></div><div><b id="pFold">{{ its|selectattr("folded")|list|length }}</b><span>已收起</span></div><div><b id="pLike">{{ its|selectattr("vote", "equalto", 1)|list|length }}</b><span>已点赞</span></div></div>
+   <div class="ical"><div class="calbox"><div class="roll" role="img"></div><div class="cal"></div></div></div>
+  </div>
+  <div id="feature">{% if feature %}{% set f = feature %}<article class="card feature item"{{ data(f) }} data-group="{{ f.group or '' }}"><div class="art"><span><b>{{ (f.published_at or issue.key)[5:10] }}</b><b>{{ (f.sources or ["—"])[0] }}</b></span></div><div class="body"><h2>{% if f.url|safe_url %}<a href="{{ f.url|safe_url }}" target="_blank" rel="noopener noreferrer">{{ f.title_translated or f.title }}</a>{% else %}{{ f.title_translated or f.title }}{% endif %}</h2>{% set fs = f.summary_translated or f.summary %}{% if fs %}<p>{{ fs[:260] }}</p>{% endif %}
+   <div class="foot" style="margin-top:12px">{% if f.points is not none %}<span class="m">▲ <b>{{ f.points }}</b></span>{% endif %}{{ acts(f, False) }}</div><div class="bars"><i class="on"></i><i class="on"></i><i></i></div></div></article>{% endif %}</div>
+ </section>
+ <div class="modcards" id="mods">{% for m, label, sub, rows in groups %}<a href="#m-{{ m }}" data-scroll="m-{{ m }}" data-m="{{ m }}"><small>0{{ loop.index }}</small><span>{{ label }}</span><b>{{ rows|length }}</b><span class="bar"><i style="--w:100%"></i></span></a>{% endfor %}</div>
+ <div class="filters"><div class="chips single" id="tagf"><button class="chip" type="button" aria-pressed="true" data-t="">全部 <span class="n">{{ its|length }}</span></button>{% for t, n in tags %}<button class="chip" type="button" aria-pressed="false" data-t="{{ t }}">{{ t }} <span class="n">{{ n }}</span></button>{% endfor %}</div><span style="flex:1"></span>
+  <span class="fbhint" id="fbhint">{{ "反馈：♥ 赞" if ui.feedback == "like" else "反馈：♥ 赞 · 踩 · 删除" }}{% if trashed %} · 本期删了 {{ trashed }} 条（<a href="/trash">回收站</a>）{% endif %}{% if n_down %} · {{ n_down }} 条因你的反馈降权，排在本栏后面{% endif %}</span><button class="btn sm ghost" id="allFold" type="button">全部模块收起</button></div>
+ <div id="feed">
+ {% for m, label, sub, rows in groups %}{% set open = rows|rejectattr("folded")|list %}{% set folded = rows|selectattr("folded")|list %}
+  <section class="module" id="m-{{ m }}" data-m="{{ m }}"><button class="mhead" type="button" aria-expanded="true" data-m="{{ m }}"><span class="no">0{{ loop.index }}</span><h2>{{ label }}</h2><small>{{ sub }}</small><span class="n">{{ rows|length }}</span><span class="chev">▼</span></button>
+   <div class="ed">{% if open %}<div class="elead">{{ card(open[0], "lead") }}</div><div class="eside">{% for it in open[1:4] %}{{ card(it, "mini") }}{% endfor %}</div><div class="rest">{% for it in open[4:] %}{{ card(it) }}{% endfor %}</div>{% else %}<p class="muted allfold">本栏全部收起了。</p>{% endif %}
+    <div class="pool" hidden>{% for it in folded %}{{ card(it) }}{% endfor %}</div></div>
+   <div class="seen"{% if not folded %} hidden{% endif %}><button class="shbar" type="button" aria-expanded="false"><span>⌄</span><span>已收起 <b>{{ folded|length }}</b> 条</span><span class="sop">展开</span></button><ol class="slist" hidden>{% for it in folded %}<li data-id="{{ it.item_id }}"><span>{{ it.title_translated or it.title }}</span><button class="btn sm ghost" data-unfold="{{ it.item_id }}" type="button">放回</button></li>{% endfor %}</ol></div></section>
+ {% else %}<p class="empty">这一期没有符合你关键词和配额的内容。去<a href="/sources">订阅源</a>或<a href="/settings">设置</a>调整。</p>{% endfor %}
+ </div>
 {% else %}
-<h1>还没有日报</h1>
-<p class="empty">{% if key %}没有 {{ key }} 这一期。{% else %}你还没有生成过日报。{% endif %}</p>
+ <section class="nd-hero empty-hero"><div><div class="kicker"><span class="dot"></span><span>{{ "没有这一期" if key else "还没有日报" }}</span></div>
+  <h1 class="nd-date">{{ key or "newsd" }}</h1><p class="muted">{% if key %}没有 {{ key }} 这一期。{% else %}你还没有生成过日报。{% endif %}</p></div></section>
 {% endif %}
-<p><button class="primary" id="build">{{ "重新生成今日日报" if issue else "立即生成日报" }}</button> <span class="status" id="build-status" role="status"></span></p>
+ <p class="muted endnav"><a class="btn" href="/calendar">查看往期归档 →</a> <a class="btn" href="/favorites">我的收藏 →</a> <button class="btn ghost" id="build" type="button">{{ "重新生成今日日报" if issue else "立即生成日报" }}</button> <span class="status" id="build-status" role="status"></span></p>
 </main>{% endblock %}
-{% block script %}<script>
-$("#build").addEventListener("click", async () => {
-  $("#build").disabled = true; $("#build-status").textContent = "生成中…";
-  const [ok, j] = await call("POST", "/api/me/issues/build", {});
-  if (ok) location.href = "/"; else { $("#build").disabled = false; $("#build-status").textContent = "生成失败：" + (j.error || ""); }
-});
-</script>{% endblock %}
+{% block script %}<script src="/static/v2/nd-calendar.js?v={{ asset_v }}"></script>
+<script>window.ND_ISSUE={key:{{ (issue.key if issue else key)|tojson }},days:{{ day_counts|tojson }}};</script>
+<script src="/static/v2/issue.js?v={{ asset_v }}"></script>{% endblock %}

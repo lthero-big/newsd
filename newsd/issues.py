@@ -22,10 +22,11 @@ from .llm.client import LLMClient
 from .llm.process import _dedupe as ai_dedupe, _rerank as ai_rerank, _score_profile
 from .llm.profiles import all_profiles, get_picks
 from .llm.translate import translate_texts
+from .feedback import adjust_candidates, annotate
 from .marks import user_marks
 from .models import Issue, IssueItem, ItemScore, PoolItem, User
 from .pool.collector import item_text, user_items
-from .scoring import Candidate, cut, dedupe, item_sources, load_caps, load_rules, score_candidates
+from .scoring import Candidate, cut, dedupe, item_sources, load_caps, load_rules, score_candidates, source_label
 
 LLM_WEIGHT = 0.6
 NEUTRAL_MODEL_SCORE = 5.0  # used for items the model gave no usable verdict on, so scales stay comparable
@@ -127,6 +128,7 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
                         by_id[dup].reason = f"duplicate-of:{x['id']}:semantic"
                 dropped += [c for c in kept if c.item_id not in keep_ids]
                 kept = [c for c in kept if c.item_id in keep_ids]
+        adjust_candidates(db, user_id, kept)
         selected, d = cut(kept, caps)
         dropped += d
         if client is not None and ai_rerank_on and not report.get("stopped") and len(selected) > 1:
@@ -193,25 +195,90 @@ def _store(db, user_id, key, selected, dropped, tr, report, caps, since, now, n_
 
 # ------------------------------------------------------------------------------------------ read side
 
-def issue_view(db, issue: Issue) -> dict:
-    rows = db.execute(select(IssueItem, PoolItem).join(PoolItem, PoolItem.id == IssueItem.item_id)
-                      .where(IssueItem.issue_id == issue.id).order_by(IssueItem.rank)).all()
-    srcs = item_sources(db, [p.id for _, p in rows])
-    marks = user_marks(db, issue.user_id)
-    items = [{"rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
+def _item_dict(ii: IssueItem, p: PoolItem, srcs: dict, marks: dict) -> dict:
+    return {"rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
               "summary": p.summary, "summary_translated": ii.summary_translated, "image": p.image, "author": p.author,
               "published_at": p.published_at.isoformat() if p.published_at else None, "module": ii.module,
               "group": ii.group_name, "score": ii.score, "rule_score": ii.rule_score, "llm_score": ii.llm_score,
               "profile": ii.profile, "section": ii.section, "matched": [m["term"] for m in ii.matched or []],
               "categories": ii.categories or [], "also": ii.also or [], "sources": [s.name for s in srcs.get(p.id, [])],
-              "state": marks.get(p.id)}
-             for ii, p in rows]
+              "source_keys": [s.key for s in srcs.get(p.id, [])], "state": marks.get(p.id),
+              "source_cat": source_label(srcs[p.id][0].key, srcs[p.id][0].kind) if srcs.get(p.id) else "rss",
+              "points": (p.extra or {}).get("points"), "comments": (p.extra or {}).get("comments")}
+
+
+def issue_view(db, issue: Issue) -> dict:
+    rows = db.execute(select(IssueItem, PoolItem).join(PoolItem, PoolItem.id == IssueItem.item_id)
+                      .where(IssueItem.issue_id == issue.id).order_by(IssueItem.rank)).all()
+    srcs = item_sources(db, [p.id for _, p in rows])
+    marks = user_marks(db, issue.user_id)
+    items = annotate(db, issue.user_id, [_item_dict(ii, p, srcs, marks) for ii, p in rows])
     return {"key": issue.key, "ai": issue.ai, "model": issue.model, "created_at": issue.created_at.isoformat(),
             "updated_at": issue.updated_at.isoformat(), "stats": {k: v for k, v in (issue.stats or {}).items() if k != "dropped_items"},
             "items": items}
 
 
+def item_cards(db, user_id: int, item_ids: list[int]) -> list[dict]:
+    """Cards for items outside one issue (收藏 / 点赞): each as it appeared in the user's latest issue that carried it,
+    plus ``key`` (that issue). Order follows ``item_ids``; items never in an issue of this user are skipped."""
+    if not item_ids:
+        return []
+    latest: dict[int, tuple[IssueItem, PoolItem, str]] = {}
+    for ii, p, key in db.execute(select(IssueItem, PoolItem, Issue.key).join(Issue, Issue.id == IssueItem.issue_id)
+                                 .join(PoolItem, PoolItem.id == IssueItem.item_id)
+                                 .where(Issue.user_id == user_id, IssueItem.item_id.in_(item_ids)).order_by(Issue.key)):
+        latest[p.id] = (ii, p, key)
+    srcs = item_sources(db, list(latest))
+    marks = user_marks(db, user_id)
+    out = [_item_dict(ii, p, srcs, marks) | {"key": key} for ii, p, key in (latest[i] for i in item_ids if i in latest)]
+    return annotate(db, user_id, out) if out else out
+
+
+def search_items(db, user_id: int, q: str, module: str = "", limit: int = 60) -> dict:
+    """Archive search over the user's own issues (titles, translations, summaries, source names), newest issue first.
+    Every whitespace-separated word must match; trash / purged items are left out."""
+    from sqlalchemy import func, or_
+    from .models import ItemMark, PoolItemSource, Source
+    words = [w for w in q.lower().split() if w][:8]
+    stmt = (select(IssueItem, PoolItem, Issue.key).join(Issue, Issue.id == IssueItem.issue_id)
+            .join(PoolItem, PoolItem.id == IssueItem.item_id).where(Issue.user_id == user_id))
+    if module:
+        stmt = stmt.where(IssueItem.module == module)
+    hidden = select(ItemMark.item_id).where(ItemMark.user_id == user_id, ItemMark.state.in_(("trash", "purged")))
+    stmt = stmt.where(IssueItem.item_id.not_in(hidden))
+    src_names = (select(func.lower(func.coalesce(Source.name, Source.key))).join(PoolItemSource, PoolItemSource.source_id == Source.id)
+                 .where(PoolItemSource.item_id == PoolItem.id).correlate(PoolItem))
+    for w in words:
+        pat = "%" + w.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        stmt = stmt.where(or_(func.lower(PoolItem.title).like(pat, escape="\\"), func.lower(PoolItem.summary).like(pat, escape="\\"),
+                              func.lower(func.coalesce(IssueItem.title_translated, "")).like(pat, escape="\\"),
+                              func.lower(func.coalesce(IssueItem.summary_translated, "")).like(pat, escape="\\"),
+                              src_names.where(func.lower(func.coalesce(Source.name, Source.key)).like(pat, escape="\\")).exists()))
+    seen, items = set(), []
+    rows = db.execute(stmt.order_by(Issue.key.desc(), IssueItem.rank).limit(2000)).all()
+    srcs = item_sources(db, list({p.id for _, p, _k in rows[:400]}))
+    for ii, p, key in rows:
+        if p.id in seen:
+            continue
+        seen.add(p.id)
+        if len(items) < limit:
+            s0 = (srcs.get(p.id) or [None])[0]
+            items.append({"item_id": p.id, "key": key, "module": ii.module, "title": ii.title_translated or p.title,
+                          "summary": (ii.summary_translated or p.summary or "")[:400],
+                          "source": (s0.name or s0.key) if s0 else None})
+    return {"total": len(seen), "items": items}
+
+
 router = APIRouter(prefix="/api")
+
+
+@router.get("/me/search")
+def my_search(q: str = "", module: str = "", user=Depends(require_user), db=Depends(get_db)):
+    if len(q) > 200 or len(module) > 32:
+        raise HTTPException(400, "query too long")
+    if not q.strip() and not module:
+        return {"total": 0, "items": []}
+    return search_items(db, user.id, q, module)
 
 
 @router.get("/me/issues")

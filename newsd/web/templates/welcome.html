@@ -1,11 +1,9 @@
-{% extends "base.html" %}{% block title %}欢迎 · newsd{% endblock %}
-{% block body %}<main><h1>你好，{{ user.username }}</h1>
-<p>选几个你感兴趣的方向，我们一键订阅对应的推荐信息源，之后都可以在设置里改。也可以跳过，自己慢慢挑。</p>
-<form id="welcome">
-{% for g in groups %}<section class="panel"><label><input type="checkbox" name="interest" value="{{ g.name }}"{% if g.name == "ai-news" %} checked{% endif %}> <b>{{ g.title }}</b></label>
-<div class="meta">栏目：{{ g.sections|join("、") }} · 将订阅 {{ g.sources|length }} 个源</div></section>{% endfor %}
-<button class="primary" type="submit">订阅所选</button> <button type="button" id="skip">先跳过</button> <span class="status" id="st" role="status"></span>
-</form></main>{% endblock %}
+{% extends "_auth.html" %}{% block title %}欢迎 · newsd{% endblock %}
+{% block box %}<div class="steps"><i class="on"></i><i class="on"></i><i></i></div><h2>你好，{{ user.username }}</h2>
+<p class="muted" style="margin:0 0 20px">选几个你感兴趣的方向，我们一键订阅对应的推荐信息源（之后靠 ♥ 赞 / 踩 / 删除学习），之后都可以在设置里改。也可以跳过，自己慢慢挑。</p>
+<form id="welcome"><div class="pick">{% for g in groups %}<label class="chip pickc"><input type="checkbox" name="interest" value="{{ g.name }}"{% if g.name == "ai-news" %} checked{% endif %}> <b>{{ g.title }}</b><small>{{ g.sections|join("、") }} · {{ g.sources|length }} 个源</small></label>{% endfor %}</div>
+<div class="callout" style="margin:22px 0"><span>✦</span><span>之后可以在「设置 → 模型」添加模型 provider，用于生成中文摘要与点评。</span></div>
+<div class="row"><span class="status" id="st" role="status"></span><span style="flex:1"></span><button type="button" class="btn" id="skip">先跳过</button><button class="btn primary" type="submit">订阅所选</button></div></form>{% endblock %}
 {% block script %}<script>
 async function go(list) {
   const [ok, j] = await call("POST", "/api/onboarding", {interests: list});

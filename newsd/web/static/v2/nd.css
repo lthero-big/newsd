@@ -1,0 +1,49 @@
+/* newsd v2: additions on top of the demo stylesheet (theme.css + app.css are the accepted demo, verbatim). */
+.mcal a.d{display:block;text-decoration:none}
+.elead{min-width:0}.ed .pool{display:none}
+.card .orig-t{font-size:12.5px;color:var(--muted);margin:-2px 0 6px}
+.allfold{grid-column:1/-1}.allfold[hidden]{display:none}
+.endnav{text-align:center;margin:40px 0 80px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center}
+.callout.err{background:color-mix(in srgb,var(--danger) 10%,var(--surface));border-color:color-mix(in srgb,var(--danger) 40%,var(--line));margin:0 0 16px}
+.umenu-pop form.logout{margin:0}.umenu-pop form.logout button{all:unset;display:block;box-sizing:border-box;width:100%;padding:7px 10px;border-radius:8px;font-size:14px;cursor:pointer}
+.umenu-pop form.logout button:hover,.umenu-pop form.logout button:focus-visible{background:var(--surface-2)}
+.pick .pickc{display:flex;flex-direction:column;align-items:flex-start;gap:2px;cursor:pointer;padding:10px 14px;border-radius:14px}
+.pick .pickc input{position:absolute;opacity:0;pointer-events:none}.pick .pickc small{color:var(--muted);font-size:12px}
+.pick .pickc:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--ink)}
+.pick .pickc:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.empty-hero{grid-template-columns:1fr}
+body.tfade *{transition:background-color .4s,color .4s,border-color .4s!important}
+.status{color:var(--muted);font-size:13px;min-height:1.4em}
+.fav-grid .item[hidden],.tlist .trow[hidden]{display:none}
+/* --- legacy settings / admin blocks, kept inside the console until they are rebuilt (item 3b / 3c) --- */
+.legacy{margin-top:8px}
+.legacy h1{font:400 30px var(--font-display);margin:18px 0 10px}
+.legacy h2{font:400 20px var(--font-display);margin:0 0 10px}.legacy h2.sec{margin:34px 0 12px}
+.legacy h3{font-size:14px;margin:16px 0 6px;color:var(--muted)}
+.legacy section.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:0 0 16px}
+.legacy .meta{color:var(--muted);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.legacy p{font-size:14px}
+.legacy button{font:inherit;font-size:13px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;transition:border-color .15s,background .15s}
+.legacy button:hover{border-color:var(--accent)}
+.legacy button.primary{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
+.legacy button.on{background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent);border-color:var(--accent)}
+.legacy button.danger{color:var(--danger)}
+.legacy input:not([type=checkbox]):not([type=radio]),.legacy select,.legacy textarea{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 9px;max-width:100%}
+.legacy input[type=checkbox],.legacy input[type=radio]{accent-color:var(--accent)}
+.legacy label{display:inline-block;margin:3px 12px 3px 0;font-size:14px}
+.legacy form.stack label{display:block;margin:8px 0}.legacy form.stack input:not([type=checkbox]),.legacy form.stack select{width:100%}
+.legacy table{border-collapse:collapse;width:100%;font-size:13px}.legacy th,.legacy td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.legacy th{font:600 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.legacy .scroll{overflow-x:auto}
+.legacy .tag{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);border-radius:999px;padding:0 8px;font-size:12px}
+.legacy .chips{display:flex;flex-wrap:wrap;gap:6px}.legacy .chips .tag button{border:0;background:none;padding:0 0 0 4px;color:inherit}
+.legacy .empty{text-align:center;color:var(--muted);padding:24px 0}
+.legacy a{color:var(--accent)}
+/* phones: grid tracks must be allowed to shrink below their content (long headlines, the 440px calendar) */
+.nd-hero>*,.cal-layout>*,.fav-head>*,.console>main,.legacy fieldset{min-width:0}
+.nd-head{max-width:100%;overflow-wrap:anywhere}
+@media (max-width:900px){.nd-hero,.ed,.cal-layout,.settings{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.fav-head{grid-template-columns:minmax(0,1fr)}.ical,.ical .calbox{max-width:100%}
+ .mcal{grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.mcal .d{min-height:44px;padding:5px}
+ .console>main{overflow-x:auto}}
+.ed>*,.eside,.module{min-width:0}.card.item p,.card.item h3,.card.item .t{overflow-wrap:anywhere}

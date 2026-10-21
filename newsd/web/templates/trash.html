@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% from "_card.html" import CATS %}{% block title %}回收站 · newsd{% endblock %}
+{% block reading %}<main class="wrap">
+ <section class="trash-head"><div><div class="kicker"><span class="dot"></span><span>删除即进回收站 · {{ trash_days }} 天后自动清空</span></div><h1>回收站<span>.</span></h1>
+  <p class="muted" style="margin:8px 0 0;max-width:58ch">在日报里点卡片上的删除，条目会马上移到这里。删除也算一次<b>强负反馈</b>：比「踩」更明显地减少同来源、同关键词、同话题的推荐。恢复条目会把这次反馈一起撤掉；彻底删除只清掉条目，学到的偏好仍保留，可在 <a href="/settings#learn" style="color:var(--accent)">设置 → 学到的偏好</a> 里撤销。</p></div>
+  <div class="row"><button class="btn" id="restoreAll" type="button"{% if not rows %} disabled{% endif %}>全部恢复</button><button class="btn danger" id="emptyBtn" type="button"{% if not rows %} disabled{% endif %}>清空回收站</button></div></section>
+ <div class="filters"><label class="row" style="gap:8px;font-size:13px"><input type="checkbox" id="selAll"> 全选</label><input class="input" id="tq" type="search" placeholder="搜索回收站…" style="width:240px"><span style="flex:1"></span><span class="muted mono" style="font-size:12px" id="tn">{{ rows|length }} 条</span></div>
+ <div class="bulkbar" id="bulk" hidden><b id="bn"></b><span style="flex:1"></span><button class="btn sm" id="bRestore" type="button">恢复所选</button><button class="btn sm danger" id="bPurge" type="button">彻底删除所选</button></div>
+ <div class="tlist" id="tlist">{% for r in rows %}{% set c = CATS.get(r.source_cat or "rss", CATS.rss) %}
+  <article class="card trow" data-id="{{ r.item_id }}" data-q="{{ ((r.title_translated or '') ~ ' ' ~ r.title ~ ' ' ~ (r.source or ''))|lower }}"><input type="checkbox" aria-label="选择 {{ r.title_translated or r.title }}">
+   <div><h4>{% if r.url|safe_url %}<a href="{{ r.url|safe_url }}" target="_blank" rel="noopener noreferrer">{{ r.title_translated or r.title }}</a>{% else %}{{ r.title_translated or r.title }}{% endif %}</h4><div class="sub">{% if r.source %}<span><i class="ci ci-{{ r.source_cat or 'rss' }}">{{ c[1] }}</i> {{ r.source }}</span>{% endif %}{% if r.key %}<span>来自 {{ r.key }} 日报</span>{% endif %}<span>删除于 {{ r.marked_at[5:10] }} {{ r.marked_at[11:16] }}</span><span>{{ r.days_left }} 天后自动清空</span></div>
+   {% if r.features %}<div class="learn">已据此减少：{% for f in r.features %}<b>{{ f }}</b>{% if not loop.last %}、{% endif %}{% endfor %}</div>{% endif %}</div>
+   <div class="row" style="gap:6px"><button class="btn sm" data-a="restore" type="button">恢复</button><button class="btn sm ghost danger" data-a="purge" type="button">彻底删除</button></div></article>{% endfor %}</div>
+ <p class="empty" id="empty"{% if rows %} hidden{% endif %}>回收站是空的。<br><a href="/" style="color:var(--accent)">回到日报</a></p>
+</main>
+<div class="overlay" id="confirm" role="dialog" aria-modal="true" aria-labelledby="cT"><div class="modal" style="width:min(440px,100%)"><header><h3 id="cT">清空回收站？</h3><button class="btn ghost icon" data-close aria-label="关闭" type="button">✕</button></header>
+ <div class="body"><p style="margin:0" id="cB"></p><label class="row" style="gap:8px;margin-top:14px;font-size:14px"><input type="checkbox" id="cForget"> 同时撤销这些删除带来的降权</label></div>
+ <footer><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="cOk" type="button" style="background:var(--danger);border-color:var(--danger);color:#fff">彻底删除</button></footer></div></div>
+{% endblock %}
+{% block script %}<script src="/static/v2/trash.js?v={{ asset_v }}"></script>{% endblock %}

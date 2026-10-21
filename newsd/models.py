@@ -346,11 +346,25 @@ class ItemMark(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
-    state: Mapped[str] = mapped_column(String(16))  # favorite | trash
+    state: Mapped[str] = mapped_column(String(16))  # favorite | trash | purged (trash emptied; kept as a learning signal)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
 # ---------------------------------------------------------------- M2-5: worker run records
+
+class ItemFeedback(Base):
+    """Per-user reading feedback on one item (DEPTAI-216 item 3): vote 1 = ♥ like (more like this),
+    -1 = 👎 dislike (fewer like this), 0 = none; ``folded`` = "seen, collapse it". Favorites and the
+    trash stay in ``item_marks``."""
+    __tablename__ = "item_feedback"
+    __table_args__ = (UniqueConstraint("user_id", "item_id"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
+    vote: Mapped[int] = mapped_column(Integer, default=0)
+    folded: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
 
 class WorkerRun(Base):
     """One scheduler tick (or manual `newsd worker run-once`): the shared collection, then every user's issue.

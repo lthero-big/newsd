@@ -1,6 +1,0 @@
-{% extends "base.html" %}{% from "_item.html" import card %}{% block title %}{{ title }} · newsd{% endblock %}
-{% block body %}<main><h1>{{ title }} <small class="meta">{{ rows|length }} 条</small></h1>
-<p class="meta">{{ hint }}</p>
-{% for it in rows %}<div data-list="{{ page }}">{{ card(it, page) }}</div>{% endfor %}
-{% if not rows %}<p class="empty">{{ empty }}</p>{% endif %}
-</main>{% endblock %}

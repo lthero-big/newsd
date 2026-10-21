@@ -274,9 +274,9 @@ def test_test_push_needs_a_configured_channel_and_is_rate_limited(db, net):
 def test_worker_push_tick_and_scheduler_job(db, net, monkeypatch):
     """The worker's per-minute job calls the dispatcher; tick() hands over right after the pipeline."""
     from newsd import worker
-    setup_user(db, time="00:00")
-    net.on(WEBHOOK, (200, {"ok": 1}))
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    setup_user(db, time=now.strftime("%H:%M"))  # due right now, whatever time of day the suite runs (grace window)
+    net.on(WEBHOOK, (200, {"ok": 1}))
     monkeypatch.setattr(service, "now", lambda: now)
     key = service.issue_key_today(now)
     from newsd.models import Issue
