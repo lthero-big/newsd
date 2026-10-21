@@ -36,19 +36,37 @@ docker compose logs -f worker
 ```
 
 - `web` and `worker` share one image and the named volume `newsd-data` (mounted at `/data`, SQLite file `/data/newsd.db`). `worker` starts after `web` is healthy.
-- Port `8080` is published on the host. On a public host expose only the reverse proxy: change the mapping to `127.0.0.1:8080:8080`.
+- Port `8080` is published on the host. On a public host expose only the reverse proxy: set `NEWSD_PORT=127.0.0.1:8080` in `.env`.
 - Run the whole pipeline once, right now: `docker compose exec worker newsd worker run-once --no-ai`.
-- Upgrade: `git pull && docker compose up -d --build` (migrations run when web starts).
+- Upgrade: see "Image and upgrades" below (migrations run when web starts).
+
+### Image
+
+- The `Dockerfile` is multi-stage: the build stage installs newsd and its dependencies (Postgres driver included) into a virtualenv; the runtime stage copies only that virtualenv (no sources, no compilers) and runs as the unprivileged user `newsd` (uid 10001). Data lives in `/data`.
+- Pushing a release tag `vX.Y.Z` makes GitHub Actions build amd64 + arm64 images and push them to `ghcr.io/lthero-big/newsd` as `X.Y.Z`, `X.Y` and `latest`, after a smoke test (starts, `/healthz` answers, runs as uid 10001).
+- Released image: `docker compose pull && docker compose up -d` (`NEWSD_VERSION` in `.env` pins a version, default `latest`). Build the checkout yourself: `docker compose up -d --build`.
+- Slow or blocked PyPI: `docker compose build --build-arg PYPI_MIRROR=https://your-mirror/simple`.
+
+### Image and upgrades
+
+- Manually: `docker compose pull && docker compose up -d` (self-built: `git pull && docker compose up -d --build`).
+- From the web: enable the `updater` and click "update" on the admin overview, see [updates.md](updates.md).
+- **Coming from older images**: they ran as root, so the files in the volume belong to root. The new image exits with the fix when `/data` is not writable; run it once:
+  ```bash
+  docker compose run --rm --user 0 --entrypoint chown web -R 10001:10001 /data
+  ```
 
 ### Postgres
 
-The image has no Postgres driver by default. In the `Dockerfile` change `pip install --no-cache-dir .` to `pip install --no-cache-dir '.[postgres]'`, add a `postgres` service to the compose file, and set
+The compose file ships an optional Postgres 16 (profile `postgres`, data in the `newsd-pg` volume, no published port). Add to `.env`:
 
 ```bash
-NEWSD_DATABASE_URL=postgresql+psycopg://newsd:CHANGE_ME@db:5432/newsd
+COMPOSE_PROFILES=postgres
+NEWSD_PG_PASSWORD=a-long-random-string
+NEWSD_DATABASE_URL=postgresql+psycopg://newsd:the-same-password@db:5432/newsd
 ```
 
-Also remove the `NEWSD_DATABASE_URL` override under `environment:` in the compose file. psycopg is LGPL-3.0, see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+and `docker compose up -d`. web waits for Postgres to be healthy, then creates the schema. For an external Postgres leave the profile off and point `NEWSD_DATABASE_URL` at it. psycopg is LGPL-3.0, see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ## Option 2: bare metal (systemd)
 

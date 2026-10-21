@@ -107,6 +107,11 @@ docker compose exec web newsd db import-config \
 
 浏览器打开 http://localhost:8080 ，用管理员账号登录。数据保存在名为 `newsd-data` 的 Docker 卷里。立刻跑一轮看效果：`docker compose exec worker newsd worker run-once`。
 
+- **镜像**：多阶段构建，以非 root 用户（uid 10001）运行。发布版本后可以直接用 `ghcr.io/lthero-big/newsd` 的预构建镜像（amd64 / arm64）：`docker compose pull && docker compose up -d`，不用 `--build`。PyPI 慢时构建可加 `--build-arg PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple`。
+- **用 Postgres**：在 `.env` 里加 `COMPOSE_PROFILES=postgres`、`NEWSD_PG_PASSWORD=<随机密码>` 和 `NEWSD_DATABASE_URL=postgresql+psycopg://newsd:<同一个密码>@db:5432/newsd`，compose 会一起启动自带的 Postgres 16。
+- **网页端更新**：再加 `--profile updater`，见 [docs/updates.md](docs/updates.md)。
+- 端口、反向代理、systemd 等细节见 [部署指南](docs/deployment.md)。
+
 ### 方式三：本机直接运行
 
 需要 Python 3.11 或 3.12。
@@ -141,11 +146,9 @@ python3 -m venv .venv
 
 手动升级：
 
-- **Docker Compose**：
-  ```bash
-  git pull
-  docker compose up -d --build
-  ```
+- **Docker Compose**：预构建镜像 `docker compose pull && docker compose up -d`；自己构建 `git pull && docker compose up -d --build`。
+  > 从以前的镜像升级：旧镜像以 root 运行，新镜像以 uid 10001 运行。如果启动时提示 `/data is not writable`，执行一次
+  > `docker compose run --rm --user 0 --entrypoint chown web -R 10001:10001 /data` 即可。
 - **本机运行**：
   ```bash
   git pull
@@ -239,6 +242,9 @@ X 和部分国内源需要自建 RSSHub，设置 `RSSHUB_BASE`（和 `RSSHUB_ACC
 
 **日报什么时候生成？为什么今天还没有？**
 worker 在 `NEWSD_WORKER_TIMES` 指定的时刻（`NEWSD_WORKER_TZ` 时区）运行。确认 worker 进程在跑，然后在「管理 → 日志与任务」看最近一次运行的时间线和错误；也可以在那里手动运行一次。
+
+**Docker 里提示 `/data is not writable`？**
+旧版镜像以 root 运行，新镜像改为非 root（uid 10001）。执行一次 `docker compose run --rm --user 0 --entrypoint chown web -R 10001:10001 /data` 修正数据卷的属主。
 
 **出现 `database is locked`？**
 SQLite 被多个进程同时写入时偶发，连接已设置 30 秒超时；写入压力大时换成 Postgres。

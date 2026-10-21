@@ -1,5 +1,8 @@
-# `docker compose up -d` starts web + worker. Add `--profile updater` to enable the web "update" button
-# (see docs/updates.md). Images: NEWSD_IMAGE / NEWSD_VERSION; `docker compose up -d --build` builds locally instead.
+# newsd: web + worker share one image and one database.
+#   docker compose up -d                          # SQLite in the newsd-data volume (default)
+#   COMPOSE_PROFILES=postgres docker compose up -d  # bundled Postgres (set NEWSD_DATABASE_URL, see .env.example)
+#   docker compose --profile updater up -d        # + web "update" button (docs/updates.md)
+# Image: NEWSD_IMAGE:NEWSD_VERSION (default ghcr.io/lthero-big/newsd:latest); `up -d --build` builds this checkout.
 x-newsd: &newsd
   image: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}:${NEWSD_VERSION:-latest}
   env_file: .env
@@ -8,19 +11,23 @@ x-newsd: &newsd
   volumes:
     - newsd-data:/data
   restart: unless-stopped
+  depends_on:
+    db:
+      condition: service_healthy
+      required: false  # only when the postgres profile is on
 
 services:
   web:
     <<: *newsd
     build: .
     ports:
-      - "${NEWSD_PORT:-8080}:8080"
+      - "${NEWSD_PORT:-8080}:8080"  # behind a reverse proxy: NEWSD_PORT=127.0.0.1:8080
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 10s
+      start_period: 15s
   # scheduler: collects the shared pool once, then builds every user's issue at NEWSD_WORKER_TIMES (NEWSD_WORKER_TZ)
   worker:
     <<: *newsd
@@ -28,6 +35,22 @@ services:
     depends_on:
       web:
         condition: service_healthy  # web runs the DB migrations first
+  # optional: bundled Postgres. Data in the newsd-pg volume; not published on any port.
+  db:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: newsd
+      POSTGRES_USER: newsd
+      POSTGRES_PASSWORD: ${NEWSD_PG_PASSWORD:-}  # required: set it in .env (postgres refuses to start without one)
+    volumes:
+      - newsd-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newsd -d newsd"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
   # optional: web-triggered updates. The only container with the Docker socket; it pulls NEWSD_IMAGE:<release> and
   # recreates web and worker of this project. Not published on any port.
   updater:
@@ -37,9 +60,11 @@ services:
     env_file: .env
     environment:
       NEWSD_IMAGE: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}
-    user: "0:0"  # to read /var/run/docker.sock
+    user: "0:0"  # to use /var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+
 volumes:
   newsd-data:
+  newsd-pg:

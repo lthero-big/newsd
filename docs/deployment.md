@@ -36,19 +36,37 @@ docker compose logs -f worker
 ```
 
 - `web` 和 `worker` 用同一镜像、同一个命名卷 `newsd-data`（挂在 `/data`，SQLite 文件 `/data/newsd.db`）。`worker` 等 `web` 健康检查通过后才启动。
-- 端口 `8080` 直接映射到宿主机。放在公网时请只暴露反向代理，把 compose 里的端口改成 `127.0.0.1:8080:8080`。
+- 端口 `8080` 直接映射到宿主机。放在公网时请只暴露反向代理：在 `.env` 里设 `NEWSD_PORT=127.0.0.1:8080`。
 - 立刻手动跑一次完整管线看效果：`docker compose exec worker newsd worker run-once --no-ai`。
-- 升级：`git pull && docker compose up -d --build`（迁移在 web 启动时自动执行）。
+- 升级：见下面「镜像与升级」（迁移在 web 启动时自动执行）。
+
+### 镜像
+
+- `Dockerfile` 是多阶段构建：第一阶段在虚拟环境里装好 newsd 和依赖（已包含 Postgres 驱动），运行阶段只复制虚拟环境，不带源码和编译工具；进程以非 root 用户 `newsd`（uid 10001）运行，数据在 `/data`。
+- 发布版本（打 `vX.Y.Z` 标签）时，GitHub Actions 会构建 amd64 和 arm64 镜像并推送到 `ghcr.io/lthero-big/newsd`，标签为 `X.Y.Z`、`X.Y` 和 `latest`。推送前会先做一次冒烟测试（能启动、`/healthz` 正常、以 uid 10001 运行）。
+- 用已发布的镜像：`docker compose pull && docker compose up -d`（`.env` 里 `NEWSD_VERSION` 可以固定版本，默认 `latest`）。用当前代码自己构建：`docker compose up -d --build`。
+- PyPI 慢或不可用时：`docker compose build --build-arg PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple`。
+
+### 镜像与升级
+
+- 手动：`docker compose pull && docker compose up -d`（自己构建的话 `git pull && docker compose up -d --build`）。
+- 网页端：启用 `updater` 后在管理概览里点「更新」，见 [updates.md](updates.md)。
+- **从旧镜像升级**：以前的镜像以 root 运行，数据卷里的文件属于 root。新镜像启动时如果发现 `/data` 不可写，会退出并打印修复命令，执行一次即可：
+  ```bash
+  docker compose run --rm --user 0 --entrypoint chown web -R 10001:10001 /data
+  ```
 
 ### 使用 Postgres
 
-镜像默认不带 Postgres 驱动。在 `Dockerfile` 里把 `pip install --no-cache-dir .` 改成 `pip install --no-cache-dir '.[postgres]'`，在 compose 里加一个 `postgres` 服务，并设置：
+compose 文件里自带一个可选的 Postgres 16（profile `postgres`，数据在卷 `newsd-pg`，不映射端口）。在 `.env` 里加：
 
 ```bash
-NEWSD_DATABASE_URL=postgresql+psycopg://newsd:CHANGE_ME@db:5432/newsd
+COMPOSE_PROFILES=postgres
+NEWSD_PG_PASSWORD=换成一串随机字符
+NEWSD_DATABASE_URL=postgresql+psycopg://newsd:同一个密码@db:5432/newsd
 ```
 
-同时去掉 compose 里 `environment:` 下对 `NEWSD_DATABASE_URL` 的覆盖。psycopg 是 LGPL-3.0，见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
+然后 `docker compose up -d`。web 会等 Postgres 健康后再启动并建表。用外部 Postgres 时不要开这个 profile，直接把 `NEWSD_DATABASE_URL` 指过去。psycopg 是 LGPL-3.0，见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
 
 ## 方式二：裸机（systemd）
 
