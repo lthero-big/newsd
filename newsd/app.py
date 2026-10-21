@@ -122,6 +122,20 @@ def create_app() -> FastAPI:
         set_registration_mode(db, mode)
         return {"mode": mode}
 
+    @app.post("/api/admin/users/{uid}/role")
+    def admin_set_role(uid: int, role: str = Form(...), admin=Depends(require_admin), db=Depends(get_db)):
+        from .cli import set_role
+        u = db.get(User, uid)
+        if not u:
+            raise HTTPException(404, "no such user")
+        if u.id == admin.id and role != "admin":
+            raise HTTPException(400, "cannot demote yourself")
+        try:
+            set_role(db, u.username, role)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        return {"id": u.id, "role": u.role}
+
     @app.post("/api/admin/users/{uid}/active")
     def admin_set_active(uid: int, active: bool = Form(...), admin=Depends(require_admin), db=Depends(get_db)):
         u = db.get(User, uid)

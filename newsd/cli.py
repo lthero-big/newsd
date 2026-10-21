@@ -6,6 +6,48 @@ import sys
 
 from sqlalchemy import select
 
+ROLES = ("user", "admin")
+
+
+def _read_password(args) -> str:
+    if getattr(args, "password_file", None):
+        with open(args.password_file, encoding="utf-8") as f:
+            return f.readline().strip()
+    return args.password or getpass.getpass("password: ")
+
+
+def create_user(db, username: str, password: str, role: str = "user"):
+    """Create a local account. Raises ValueError with a printable message."""
+    from .models import User
+    from .security import hash_password
+    if role not in ROLES:
+        raise ValueError("role must be one of: " + ", ".join(ROLES))
+    if db.scalar(select(User).where(User.username == username)):
+        raise ValueError("user exists")
+    if len(password) < 8:
+        raise ValueError("password must be >= 8 chars")
+    u = User(username=username, password_hash=hash_password(password), role=role)
+    db.add(u)
+    db.commit()
+    return u
+
+
+def set_role(db, username: str, role: str):
+    """Change a user's role; refuses to demote the last active admin."""
+    from .models import User
+    if role not in ROLES:
+        raise ValueError("role must be one of: " + ", ".join(ROLES))
+    u = db.scalar(select(User).where(User.username == username))
+    if u is None:
+        raise ValueError("no such user")
+    if u.role == "admin" and role != "admin":
+        others = db.scalars(select(User).where(User.role == "admin", User.active.is_(True), User.id != u.id)).all()
+        if not others:
+            raise ValueError("refusing to demote the last active admin")
+    u.role = role
+    db.commit()
+    return u
+
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="newsd")
@@ -62,11 +104,25 @@ def main(argv=None) -> int:
     pt = pssub.add_parser("test", help="send a sample message through a user's saved channel config")
     pt.add_argument("username"); pt.add_argument("channel", choices=["email", "telegram", "webhook"])
     pls = pssub.add_parser("list", help="recent delivery records"); pls.add_argument("--limit", type=int, default=20)
+    for name, hlp, default_role in (("create-user", "create a user (default role: user)", "user"),
+                                    ("create-admin", "create an admin user (same as create-user --role admin)", "admin")):
+        cu = sub.add_parser(name, help=hlp)
+        cu.add_argument("username")
+        if default_role == "user":
+            cu.add_argument("--role", choices=ROLES, default="user", help="user (default) or admin")
+        cu.set_defaults(default_role=default_role)
+        cu.add_argument("--password", help="omit to be prompted")
+        cu.add_argument("--password-file", help="read the password from this file (first line)")
+    sr = sub.add_parser("set-role", help="change an existing user's role")
+    sr.add_argument("username"); sr.add_argument("role", choices=ROLES)
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
     c.add_argument("username")
     c.add_argument("--password", help="omit to be prompted")
+    c.add_argument("--password-file", help="read the password from this file (first line)")
+    asr = asub.add_parser("set-role", help="change an existing user's role (same as `newsd set-role`)")
+    asr.add_argument("username"); asr.add_argument("role", choices=ROLES)
     asub.add_parser("invite", help="print a new invite code")
     r = asub.add_parser("registration", help="show or set the registration mode")
     r.add_argument("mode", nargs="?", choices=["invite", "open", "closed"], help="omit to show the current mode")
@@ -74,7 +130,7 @@ def main(argv=None) -> int:
 
     from .db import SessionLocal, init_db
     from .models import Invite, User
-    from .security import hash_password, new_token, token_hash
+    from .security import new_token, token_hash
 
     if args.cmd == "serve":
         import uvicorn
@@ -204,19 +260,38 @@ def main(argv=None) -> int:
     if args.cmd == "initdb":
         print("ok")
         return 0
+    if args.cmd in ("create-user", "create-admin", "set-role"):
+        db = SessionLocal()
+        try:
+            if args.cmd == "set-role":
+                u = set_role(db, args.username, args.role)
+                print(f"{u.username} is now {u.role}")
+                return 0
+            role = getattr(args, "role", None) or args.default_role
+            u = create_user(db, args.username, _read_password(args), role)
+            print(f"{u.role} {u.username} created")
+            return 0
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        finally:
+            db.close()
     db = SessionLocal()
     try:
         if args.acmd == "create":
-            if db.scalar(select(User).where(User.username == args.username)):
-                print("user exists", file=sys.stderr)
+            try:
+                create_user(db, args.username, _read_password(args), "admin")
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
                 return 1
-            pw = args.password or getpass.getpass("password: ")
-            if len(pw) < 8:
-                print("password must be >= 8 chars", file=sys.stderr)
-                return 1
-            db.add(User(username=args.username, password_hash=hash_password(pw), role="admin"))
-            db.commit()
             print(f"admin {args.username} created")
+        elif args.acmd == "set-role":
+            try:
+                u = set_role(db, args.username, args.role)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 1
+            print(f"{u.username} is now {u.role}")
         elif args.acmd == "invite":
             code = new_token("inv")
             db.add(Invite(code_hash=token_hash(code)))

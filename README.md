@@ -61,7 +61,7 @@ cp .env.example .env                 # 同样先设置 NEWSD_SECRET_KEY
 python3 -m venv .venv
 .venv/bin/pip install -e .
 .venv/bin/newsd db upgrade           # 建表
-.venv/bin/newsd admin create admin
+.venv/bin/newsd create-admin admin     # 管理员；普通账号用 newsd create-user <名字>
 .venv/bin/newsd db import-config
 .venv/bin/newsd serve                # Web 服务：http://localhost:8080
 .venv/bin/newsd worker start         # 另开一个终端：定时采集、出日报、推送
@@ -102,7 +102,9 @@ python3 -m venv .venv
 1. 决定谁能注册：
    - `invite`（默认）：用 `newsd admin invite` 生成一次性邀请码发给用户；
    - `open`：任何人都可以在 `/register` 注册；
-   - `closed`：只能由管理员在命令行用 `newsd admin create` 建账号。
+   - `closed`：只能由管理员在命令行建账号：`newsd create-user <名字>`（默认普通用户），`newsd create-user <名字> --role admin` 或 `newsd create-admin <名字>` 建管理员（旧命令 `newsd admin create` 仍可用）。
+
+   改角色用 `newsd set-role <名字> user|admin`（不会降级最后一个管理员），或在后台调用 `POST /api/admin/users/{id}/role`。普通用户看不到「管理」入口，访问 `/admin` 和 `/api/admin/*` 一律返回 403。
 
    运行中切换用 `newsd admin registration open`（不带参数查看当前模式），或在管理后台里改。
 2. 在管理后台 `/admin` 管理用户和邀请码、维护信息源目录，查看每次定时任务和推送的记录。

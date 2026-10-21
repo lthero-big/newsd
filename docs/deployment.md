@@ -29,7 +29,7 @@ NEWSD_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 git clone https://github.com/lthero-big/newsd.git && cd newsd
 cp .env.example .env && $EDITOR .env
 docker compose up -d --build
-docker compose exec web newsd admin create admin          # 提示输入密码
+docker compose exec web newsd create-admin admin          # 提示输入密码
 docker compose exec web newsd db import-config \
   --sources /app/config/collect-sources.json --tags /app/config/tags.json
 docker compose logs -f worker
@@ -61,7 +61,7 @@ sudo -u newsd .venv/bin/pip install .            # 要 Postgres 就用 '.[postgr
 sudo -u newsd cp .env.example .env && sudo -u newsd $EDITOR .env
 # .env 里把 NEWSD_DATABASE_URL 指到绝对路径，例如 sqlite:////opt/newsd/data/newsd.db
 sudo -u newsd .venv/bin/newsd db upgrade
-sudo -u newsd .venv/bin/newsd admin create admin
+sudo -u newsd .venv/bin/newsd create-admin admin
 sudo -u newsd .venv/bin/newsd db import-config --sources config/collect-sources.json --tags config/tags.json
 ```
 
