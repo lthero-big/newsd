@@ -46,6 +46,16 @@ def main(argv=None) -> int:
     ib.add_argument("--no-ai", action="store_true", help="rules only, no model calls")
     ish = isub.add_parser("show", help="print a stored issue as JSON")
     ish.add_argument("username"); ish.add_argument("--key", default="latest")
+    w = sub.add_parser("worker", help="standalone scheduler: collect once, then build every user's issue")
+    wsub = w.add_subparsers(dest="wcmd", required=True)
+    wsub.add_parser("start", help="run forever; fires at NEWSD_WORKER_TIMES in NEWSD_WORKER_TZ")
+    wr = wsub.add_parser("run-once", help="run one pipeline tick now and record it")
+    wr.add_argument("--cycle"); wr.add_argument("--key", help="issue key (default: today in NEWSD_WORKER_TZ)")
+    wr.add_argument("--user", action="append", help="only this user (repeatable)")
+    wr.add_argument("--no-pool", action="store_true", help="skip collection, build issues from the existing pool")
+    wr.add_argument("--no-extract", action="store_true"); wr.add_argument("--no-ai", action="store_true")
+    wr.add_argument("--since-hours", type=float)
+    wl = wsub.add_parser("runs", help="list recent runs"); wl.add_argument("--limit", type=int, default=10)
     a = sub.add_parser("admin", help="admin utilities")
     asub = a.add_subparsers(dest="acmd", required=True)
     c = asub.add_parser("create", help="create an admin user")
@@ -133,6 +143,30 @@ def main(argv=None) -> int:
         finally:
             db.close()
         return 0
+    if args.cmd == "worker":
+        import json as _json
+        from . import worker
+        from .settings import get_settings
+        if args.wcmd == "start":
+            return worker.serve()
+        db = SessionLocal()
+        try:
+            if args.wcmd == "runs":
+                from .models import WorkerRun
+                for r in db.scalars(select(WorkerRun).order_by(WorkerRun.id.desc()).limit(args.limit)):
+                    v = worker.run_view(r, detail=False)
+                    print(f"#{v['id']} {v['status']:<11} {v['trigger']:<8} key={v['issue_key']} started={v['started_at']} "
+                          f"users ok/failed={v['users_ok']}/{v['users_failed']} errors={v['error_count']}")
+                return 0
+            cfg = get_settings()
+            rep = worker.run_pipeline_sync(db, trigger="manual", cycle=args.cycle, key=args.key, pool=not args.no_pool,
+                                           extract=cfg.worker_extract and not args.no_extract, client=None if args.no_ai else "auto",
+                                           since_hours=args.since_hours or cfg.worker_since_hours, usernames=args.user,
+                                           tz=worker.parse_tz(cfg.worker_tz))
+            print(_json.dumps(rep, ensure_ascii=False, default=str))
+            return 0 if rep["status"] != "failed" else 1
+        finally:
+            db.close()
     if args.cmd == "initdb":
         print("ok")
         return 0

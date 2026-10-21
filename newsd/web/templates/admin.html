@@ -29,6 +29,19 @@
 <h3>添加 RSS 源</h3>
 <form id="add-src"><input name="id" placeholder="id（字母数字）" pattern="[A-Za-z0-9][\w.\-]*" required> <input name="name" placeholder="名称" required> <input name="url" type="url" placeholder="https://…/feed" required size="32"> <button>添加</button></form></section>
 
+<section class="panel"><h2>Worker 运行</h2>
+<p class="meta">独立 worker 每次定时（或 <code>newsd worker run-once</code>）的整轮记录：先共享采集，再给每个用户出当期结果。状态 ok / partial（有源或用户出错）/ failed / interrupted。最近 {{ worker_runs|length }} 次。</p>
+{% if not worker_runs %}<p class="meta">还没有记录。worker 到点会自动运行。</p>{% endif %}
+<div class="scroll"><table><thead><tr><th>#</th><th>触发</th><th>期</th><th>状态</th><th>开始 (UTC)</th><th>耗时</th><th>用户 成功 / 失败</th><th>错误</th></tr></thead><tbody>
+{% for r in worker_runs %}<tr><td>{{ r.id }}</td><td>{{ r.trigger }}</td><td>{{ r.issue_key }}</td><td><b>{{ r.status }}</b></td><td>{{ r.started_at[:16] }}</td><td>{{ (r.seconds ~ "s") if r.seconds is not none else "…" }}</td><td>{{ r.users_ok }} / {{ r.users_failed }}</td><td>{{ r.error_count }}</td></tr>
+<tr><td></td><td colspan="7"><details><summary>详情</summary>
+<ul>{% for s in r.stages %}<li><b>{{ s.stage }}</b> {{ s.status }}{% if s.error %} — {{ s.error }}{% endif %}{% for k, v in s.counts.items() %} {{ k }}={{ v }}{% endfor %}</li>{% endfor %}</ul>
+{% if r.users %}<table><thead><tr><th>用户</th><th>状态</th><th>AI</th><th>候选</th><th>入选</th><th>模型请求</th><th>错误</th></tr></thead><tbody>
+{% for u in r.users %}<tr><td>{{ u.user }}</td><td>{{ u.status }}</td><td>{{ u.ai or "" }}</td><td>{{ u.items_in if u.items_in is defined else "" }}</td><td>{{ u.items_out if u.items_out is defined else "" }}</td><td>{{ u.model_requests if u.model_requests is defined else "" }}</td><td>{{ u.error or "" }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{% if r.errors %}<p>错误：</p><ul>{% for e in r.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+</details></td></tr>{% endfor %}
+</tbody></table></div></section>
+
 <section class="panel"><h2>运行记录</h2>
 <h3>用户日报</h3><div class="scroll"><table><thead><tr><th>用户</th><th>期</th><th>状态</th><th>候选 → 入选</th><th>模型</th><th>时间</th></tr></thead><tbody>
 {% for r in runs.issues %}<tr><td>{{ r.user }}</td><td>{{ r.key }}</td><td>{{ r.status }}</td><td>{{ r.items_in if r.items_in is not none else "-" }} → {{ r.items_out if r.items_out is not none else "-" }}</td><td>{{ r.model or r.ai }}</td><td>{{ r.updated_at[:16] }}</td></tr>{% endfor %}

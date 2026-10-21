@@ -161,6 +161,8 @@ def admin_page(request: Request, user=Depends(current_user), db=Depends(get_db))
     if user.role != "admin":
         raise HTTPException(403, "admin only")
     from .admin import admin_invites, admin_users
+    from .admin_runs import recent_runs
+    from .worker import run_view
     return render(request, "admin.html", user, db, nav="admin", page="admin", mode=get_registration_mode(db),
                   invites=admin_invites(user, db), users=admin_users(user, db), sources=source_rows(db, 30), days=30,
-                  runs=admin_runs(30, user, db))
+                  runs=admin_runs(30, user, db), worker_runs=[run_view(r) for r in recent_runs(db, 20)])

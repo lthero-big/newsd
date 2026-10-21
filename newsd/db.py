@@ -22,7 +22,7 @@ def get_engine():
         url = get_settings().database_url
         kw = {}
         if url.startswith("sqlite"):
-            kw["connect_args"] = {"check_same_thread": False}
+            kw["connect_args"] = {"check_same_thread": False, "timeout": 30}  # web + worker share the file
             path = url.split("///", 1)[-1]
             if path and path != ":memory:":
                 Path(path).parent.mkdir(parents=True, exist_ok=True)

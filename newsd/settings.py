@@ -24,6 +24,12 @@ class Settings:
     registration: str = field(default_factory=lambda: os.environ.get("NEWSD_REGISTRATION", "invite"))  # invite | open | closed (default; admin can override at runtime)
     cookie_secure: bool = field(default_factory=lambda: os.environ.get("NEWSD_COOKIE_SECURE", "0") == "1")
     session_days: int = field(default_factory=lambda: int(os.environ.get("NEWSD_SESSION_DAYS", "30")))
+    # worker (M2-5): daily pipeline times "HH:MM[,HH:MM...]" in worker_tz; issue key = the date in that zone
+    worker_times: str = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_TIMES", "07:00"))
+    worker_tz: str = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_TZ", "UTC"))
+    worker_run_on_start: bool = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_RUN_ON_START", "0") == "1")
+    worker_extract: bool = field(default_factory=lambda: os.environ.get("NEWSD_WORKER_EXTRACT", "1") != "0")
+    worker_since_hours: float = field(default_factory=lambda: float(os.environ.get("NEWSD_WORKER_SINCE_HOURS", "26")))
     login_max_failures: int = 3
     login_lock_minutes: int = 15
 

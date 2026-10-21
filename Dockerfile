@@ -2,6 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY newsd ./newsd
+COPY config ./config
 RUN pip install --no-cache-dir .
 ENV NEWSD_DATABASE_URL=sqlite:////data/newsd.db
 VOLUME /data

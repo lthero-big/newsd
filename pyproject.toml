@@ -16,6 +16,7 @@ dependencies = [
   "httpx>=0.27",
   "alembic>=1.13",
   "trafilatura>=1.8",
+  "tzdata",  # NEWSD_WORKER_TZ on slim images
 ]
 
 [project.optional-dependencies]

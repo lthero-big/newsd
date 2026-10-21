@@ -1,14 +1,31 @@
+# Local deployment: no GitHub Actions, no Cloudflare Pages. `docker compose up -d --build` starts both services.
+x-newsd: &newsd
+  image: newsd:local
+  env_file: .env
+  environment:
+    NEWSD_DATABASE_URL: sqlite:////data/newsd.db
+  volumes:
+    - newsd-data:/data
+  restart: unless-stopped
+
 services:
   web:
+    <<: *newsd
     build: .
-    env_file: .env
-    environment:
-      NEWSD_DATABASE_URL: sqlite:////data/newsd.db
-    volumes:
-      - newsd-data:/data
     ports:
       - "8080:8080"
-    restart: unless-stopped
-  # worker (scheduled collection / generation) is added in M2
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+  # scheduler: collects the shared pool once, then builds every user's issue at NEWSD_WORKER_TIMES (NEWSD_WORKER_TZ)
+  worker:
+    <<: *newsd
+    command: ["newsd", "worker", "start"]
+    depends_on:
+      web:
+        condition: service_healthy  # web runs the DB migrations first
 volumes:
   newsd-data:

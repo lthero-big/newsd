@@ -325,3 +325,21 @@ class ItemMark(Base):
     item_id: Mapped[int] = mapped_column(ForeignKey("pool_items.id", ondelete="CASCADE"), index=True)
     state: Mapped[str] = mapped_column(String(16))  # favorite | trash
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+# ---------------------------------------------------------------- M2-5: worker run records
+
+class WorkerRun(Base):
+    """One scheduler tick (or manual `newsd worker run-once`): the shared collection, then every user's issue.
+    ``stages`` / ``users`` are JSON so the admin page can show per-stage counts and per-user results."""
+    __tablename__ = "worker_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trigger: Mapped[str] = mapped_column(String(16), default="schedule")  # schedule | manual | startup
+    cycle: Mapped[str] = mapped_column(String(64), default="")
+    issue_key: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(32), default="running", index=True)  # running | ok | partial | failed | interrupted
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stages: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"stage","status","started_at","finished_at","counts","error"}]
+    users: Mapped[list | None] = mapped_column(JSON, nullable=True)  # [{"user","status","items_in","items_out","ai","error",...}]
+    errors: Mapped[list | None] = mapped_column(JSON, nullable=True)  # short strings, capped

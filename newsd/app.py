@@ -29,11 +29,12 @@ def create_app() -> FastAPI:
     from .issues import router as issues_router
     app.include_router(issues_router)
     from .admin import router as admin_router
+    from .admin_runs import router as worker_runs_router
     from .marks import router as marks_router
     from .onboarding import router as onboarding_router
     from .pages import router as pages_router
     from .userprefs import router as userprefs_router
-    for r in (marks_router, userprefs_router, onboarding_router, admin_router, pages_router):
+    for r in (marks_router, userprefs_router, onboarding_router, admin_router, worker_runs_router, pages_router):
         app.include_router(r)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "web" / "static")), name="static")
 
