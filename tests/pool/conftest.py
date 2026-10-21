@@ -1,3 +1,4 @@
+from tests.dburl import db_url
 import sys
 from pathlib import Path
 
@@ -14,7 +15,7 @@ def net():
 
 @pytest.fixture()
 def db(tmp_path, monkeypatch):
-    monkeypatch.setenv("NEWSD_DATABASE_URL", f"sqlite:///{tmp_path}/pool.db")
+    monkeypatch.setenv("NEWSD_DATABASE_URL", db_url(tmp_path, "pool"))
     monkeypatch.setenv("NEWSD_SECRET_KEY", "test-secret")
     monkeypatch.setenv("NEWSD_ENV_FILE", str(tmp_path / "none.env"))
     from newsd.db import SessionLocal, init_db, reset_engine

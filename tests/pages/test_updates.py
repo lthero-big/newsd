@@ -134,10 +134,13 @@ def test_local_update_fast_forwards_migrates_and_restarts(client, checkout, monk
     assert migrated == [1] and restarted == [1]
     job = client.get("/api/admin/update").json()["job"]
     msgs = " | ".join(s["msg"] for s in job["steps"])
-    assert job["state"] == "restarting" and "已备份数据库" in msgs and "数据库迁移完成" in msgs and "依赖有变化" not in msgs
-    bak = [s["msg"] for s in job["steps"] if s["msg"].startswith("已备份数据库")][0].split("：", 1)[1]
+    assert job["state"] == "restarting" and "数据库迁移完成" in msgs and "依赖有变化" not in msgs
     import os
-    assert os.path.exists(bak) and oct(os.stat(bak).st_mode)[-3:] == "600"
+    if os.environ.get("NEWSD_TEST_PG_URL"):  # suite run against Postgres: no file to copy, the step says so
+        assert "未自动备份" in msgs and "pg_dump" in msgs
+    else:
+        bak = [s["msg"] for s in job["steps"] if s["msg"].startswith("已备份数据库")][0].split("：", 1)[1]
+        assert os.path.exists(bak) and oct(os.stat(bak).st_mode)[-3:] == "600"
     # a second click while restarting is refused
     assert client.post("/api/admin/update/apply", json={}).status_code == 409
     logs = client.get("/api/admin/logs", params={"module": "admin", "level": "INFO,WARN,ERROR"}).json()["items"]

@@ -50,7 +50,8 @@ docker compose --profile updater up -d
 
 ### Vercel
 
-不需要在网页里更新：推送到连接的仓库，或在 Vercel 控制台点 Redeploy，迁移在构建时执行。
+不需要在网页里更新：推送到你的 fork，或在 Vercel 控制台点 Redeploy。生产环境构建时会先迁移数据库（`newsd.vercel_build`），迁移失败则构建失败、线上保持旧版本。概览页仍会显示有没有新版本（由 `/api/cron/tick` 定期检查）。见 [vercel.md](vercel.md)。
+
 
 ## 记录
 

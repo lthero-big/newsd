@@ -1,3 +1,4 @@
+from tests.dburl import db_url
 import sys
 from pathlib import Path
 
@@ -16,7 +17,7 @@ def net():
 
 @pytest.fixture()
 def db(tmp_path, monkeypatch):
-    monkeypatch.setenv("NEWSD_DATABASE_URL", f"sqlite:///{tmp_path}/worker.db")
+    monkeypatch.setenv("NEWSD_DATABASE_URL", db_url(tmp_path, "worker"))
     monkeypatch.setenv("NEWSD_SECRET_KEY", "test-secret")
     monkeypatch.setenv("NEWSD_ENV_FILE", str(tmp_path / "none.env"))
     monkeypatch.setenv("NEWSD_LLM_RPM", "0")  # no real sleeping between fake model calls

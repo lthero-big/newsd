@@ -122,14 +122,18 @@ def _pool_counts(rep: dict) -> tuple[dict, list[str]]:
 async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None, key: str | None = None, fetcher=None,
                        client="auto", pool: bool = True, extract: bool = True, lookback_hours: float = 26,
                        since_hours: float = 26, usernames: list[str] | None = None, tz: ZoneInfo | None = None,
-                       now: datetime | None = None) -> dict:
+                       now: datetime | None = None, run: WorkerRun | None = None) -> dict:
     """Collect into the shared pool, then build each active user's issue. Never raises for a stage/user failure:
     those are recorded on the run (status ok | partial | failed). Returns the stored run as a dict."""
     now = now or _now()
     cycle = cycle or cycle_key(now.replace(tzinfo=timezone.utc))
     key = key or local_key(tz or ZoneInfo("UTC"), now)
-    run = WorkerRun(trigger=trigger, cycle=cycle, issue_key=key, status="running", started_at=now)
-    db.add(run); db.commit()
+    if run is None:  # /api/cron/tick passes the row it already claimed (newsd.cron)
+        run = WorkerRun(trigger=trigger, cycle=cycle, issue_key=key, status="running", started_at=now)
+        db.add(run)
+    else:
+        run.cycle, run.issue_key = cycle, key
+    db.commit()
     rec = _Recorder(db, run)
     log.info("run %s start trigger=%s cycle=%s key=%s", run.id, trigger, cycle, key)
     ev(db, "INFO", "scheduler", f"运行开始 · {trigger} · 期 {key}", run_id=run.id, detail={"cycle": cycle})

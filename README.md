@@ -72,10 +72,11 @@ flowchart LR
 - **web**（`newsd serve`）：页面和 API，启动时自动执行数据库迁移。
 - **worker**（`newsd worker start`）：在 `NEWSD_WORKER_TIMES` 先采集一次共享池，再逐个用户生成日报，到点推送。
 - 两个进程共用同一个数据库，不需要 Redis 或消息队列。数据库默认 SQLite，用户多时换成 Postgres。
+- 没有常驻进程的平台（Vercel）上没有 worker：由外部定时器调用受密钥保护的 `/api/cron/tick`，每次调用做 worker 该做的事（到点跑日报、发推送），重复调用不会重复执行。
 
 ## 部署
 
-推荐顺序：**Vercel + Supabase**（免运维、免费额度够个人使用）→ **Docker / Docker Compose**（自己的服务器，功能最完整）→ **本机直接运行**。
+推荐顺序：**Docker Compose**（自己的服务器，功能最完整，已完整验证，包括网页端一键更新）→ **本机直接运行** → **Vercel + Supabase**（免服务器，**实验性**：有平台限制，见下文）。
 
 不管哪种方式，都要先生成一个主密钥：
 
@@ -85,13 +86,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 > `NEWSD_SECRET_KEY` 用来加密用户保存的模型 key 和推送密钥。**设定后不要更换、不要丢失**：换了以后已保存的密钥都解不开，用户需要重新填写。备份数据库时一定要连同它一起保存。
 
-### 方式一：Vercel + Supabase
-
-> 🚧 **开发中**：Vercel 的入口文件、`vercel.json` 和定时任务接口正在开发，完成后这里会给出一键部署按钮和完整步骤。在那之前请先用 Docker 或本机部署。
-
-规划中的做法：Vercel 跑 Web（Serverless，无状态），Supabase 提供 Postgres（走连接池地址，端口 6543）；定时采集由 Vercel Cron 或 GitHub Actions 定时调用受密钥保护的 `/api/cron/tick` 完成。Vercel Hobby 免费版的 Cron 每天只能触发一次，需要更频繁时用 GitHub Actions 或 Pro 版。
-
-### 方式二：Docker Compose
+### 方式一：Docker Compose（推荐）
 
 需要 Docker 和 Docker Compose。
 
@@ -112,7 +107,7 @@ docker compose exec web newsd db import-config \
 - **网页端更新**：再加 `--profile updater`，见 [docs/updates.md](docs/updates.md)。
 - 端口、反向代理、systemd 等细节见 [部署指南](docs/deployment.md)。
 
-### 方式三：本机直接运行
+### 方式二：本机直接运行
 
 需要 Python 3.11 或 3.12。
 
@@ -121,7 +116,7 @@ git clone https://github.com/lthero-big/newsd.git
 cd newsd
 cp .env.example .env                 # 同样先设置 NEWSD_SECRET_KEY
 python3 -m venv .venv
-.venv/bin/pip install -e .           # 用 Postgres 时：-e '.[postgres]'
+.venv/bin/pip install -e .           # 已包含 Postgres 驱动
 .venv/bin/newsd db upgrade           # 建表 / 迁移
 .venv/bin/newsd create-admin admin   # 管理员；普通账号用 newsd create-user <名字>
 .venv/bin/newsd db import-config --sources config/collect-sources.json --tags config/tags.json
@@ -130,6 +125,35 @@ python3 -m venv .venv
 ```
 
 长期运行建议用 systemd 托管 `serve` 和 `worker start` 两个进程，写法见 [部署指南](docs/deployment.md)。
+
+### 方式三：Vercel + Supabase（实验性）
+
+不需要自己的服务器：Vercel 运行 Web（一个 Serverless 函数），Supabase 提供 Postgres，定时任务由 Vercel Cron 或 GitHub Actions 调用 `/api/cron/tick`。
+
+> ⚠️ **实验性**：入口、构建时迁移和定时接口已经在本地用 Postgres + PgBouncer（事务模式，模拟 Supabase 连接池）完整跑通，但**还没有在真实的 Vercel / Supabase 账号上验证过**。遇到问题请提 Issue。
+
+1. Supabase 新建项目，点 **Connect**，复制 **Transaction pooler** 连接串（端口 `6543`，用户名形如 `postgres.<项目ref>`）。
+2. Fork 本仓库，在 Vercel 里 **Add New → Project** 导入。框架会自动识别为 FastAPI（入口 `newsd.vercel:app`，见 `pyproject.toml` 和 `vercel.json`）。
+3. **Settings → Environment Variables**（只勾 **Production**）：
+
+   | 变量 | 值 |
+   | --- | --- |
+   | `NEWSD_SECRET_KEY` | 上面生成的随机串 |
+   | `NEWSD_DATABASE_URL` | 第 1 步的连接串（`postgresql://...:6543/postgres`） |
+   | `CRON_SECRET` | 另一个随机串（至少 16 位），保护 `/api/cron/tick` |
+   | `NEWSD_WORKER_TIMES` / `NEWSD_WORKER_TZ` | 例如 `07:00` / `Asia/Shanghai` |
+
+4. 部署。构建时会自动把数据库迁移到最新版本（迁移失败则构建失败，旧版本继续服务）。
+5. 创建管理员：本机执行 `NEWSD_DATABASE_URL='<同一个连接串>' NEWSD_SECRET_KEY='<同一个主密钥>' newsd create-admin admin`（`pip install -e .` 之后）。
+
+**限制，请先看清楚：**
+
+- **Hobby（免费版）的 Cron 每天只能触发一次**，而且在设定的那个小时内随机触发（`0 7 * * *` 可能在 07:00–07:59 之间）。`vercel.json` 默认 `0 7 * * *`（UTC），要和 `NEWSD_WORKER_TIMES` 换算成 UTC 后的小时一致。只用 Vercel Cron 时，用户各自的推送时间不生效，推送会在每天这一次运行后统一发出。
+- 需要更频繁（按用户推送时间推送、一天多期）：用 **GitHub Actions** 每 10 分钟调用一次（模板 [examples/github-actions/newsd-tick.yml](examples/github-actions/newsd-tick.yml)），或升级 Vercel Pro 把 cron 改成 `*/10 * * * *`。重复调用是安全的：同一个时间点只会跑一次日报。
+- **函数时长上限**：Hobby 300 秒，Pro 800 秒。一次日报要在这个时间内完成（采集 + 每个用户的打分/翻译/摘要），信息源和用户多的话可能超时；超时的运行会在下次调用时标记为「中断」。规模大时请用 Docker。
+- 不支持网页端一键更新：推送到仓库或在 Vercel 里 Redeploy 即可更新。
+
+完整说明（连接池、迁移、预览环境、GitHub Actions 定时器、本地验证方法）见 [docs/vercel.md](docs/vercel.md)。
 
 ### 上线前检查
 
@@ -149,6 +173,7 @@ python3 -m venv .venv
 - **Docker Compose**：预构建镜像 `docker compose pull && docker compose up -d`；自己构建 `git pull && docker compose up -d --build`。
   > 从以前的镜像升级：旧镜像以 root 运行，新镜像以 uid 10001 运行。如果启动时提示 `/data is not writable`，执行一次
   > `docker compose run --rm --user 0 --entrypoint chown web -R 10001:10001 /data` 即可。
+- **Vercel**：推送到你的 fork（或在 Vercel 里 Redeploy），生产环境构建时自动迁移数据库。
 - **本机运行**：
   ```bash
   git pull
@@ -167,7 +192,7 @@ python3 -m venv .venv
    - SQLite（默认）：在线备份 `sqlite3 var/newsd.db ".backup newsd-backup.db"`；Docker 里的文件在卷 `newsd-data` 的 `/data/newsd.db`，可以用
      `docker compose exec web python -c "import sqlite3; s=sqlite3.connect('/data/newsd.db'); d=sqlite3.connect('/data/backup.db'); s.backup(d)"`
      再 `docker compose cp web:/data/backup.db .` 拷出来。
-   - Postgres / Supabase：`pg_dump "$NEWSD_DATABASE_URL" > newsd.sql`（连接串去掉 `+psycopg`）。
+   - Postgres / Supabase：`pg_dump "$NEWSD_DATABASE_URL" > newsd.sql`（连接串去掉 `+psycopg`）。Supabase 请用 **Session pooler**（端口 5432）或直连地址做备份，不要用 6543 的事务连接池；免费版 Supabase 也有每日自动备份。
 2. **`NEWSD_SECRET_KEY`**：存到密码管理器里。没有它，备份里加密保存的模型 key 和推送密钥都无法解密。
 
 恢复：停掉 web 和 worker，把备份放回原位置（或 `psql < newsd.sql`），确认 `.env` 里是**同一个** `NEWSD_SECRET_KEY`，再启动。
@@ -230,6 +255,9 @@ curl -H "Authorization: Bearer $NEWSD_API_KEY" http://localhost:8080/api/me/issu
 
 **SQLite 还是 Postgres？**
 个人和小团队用 SQLite 足够（web 和 worker 共用一个文件，已开启 WAL）。用户多、写入频繁，或者部署在 Vercel 这类无状态平台上时，用 Postgres。
+
+**Vercel 上日报没有按时出 / `/api/cron/tick` 返回 401 或 503？**
+503 表示没有设置 `CRON_SECRET`（接口默认关闭）；401 表示调用方带的密钥不对，Vercel Cron 会自动带 `Authorization: Bearer $CRON_SECRET`，GitHub Actions 需要把同一个值存成仓库 Secret。Hobby 版每天只触发一次且有最多 59 分钟的随机延迟；运行超过函数时长上限会被平台中止，在「日志与任务」里显示为「中断」。见 [docs/vercel.md](docs/vercel.md)。
 
 **换了 `NEWSD_SECRET_KEY` 会怎样？**
 已保存的模型 key 和推送密钥都无法解密，所有人需要重新填写，已登录的会话也会失效。请把它和数据库一起备份。

@@ -19,8 +19,9 @@ from .security import new_token, token_hash
 from .settings import get_settings
 
 
-def create_app() -> FastAPI:
-    init_db()
+def create_app(migrate: bool = True) -> FastAPI:
+    if migrate:  # newsd.vercel migrates on its own terms (build step / production only)
+        init_db()
     app = FastAPI(title="newsd", version=__version__)
     from .prefs import router as prefs_router
     app.include_router(prefs_router)
@@ -40,10 +41,11 @@ def create_app() -> FastAPI:
     from .userprefs import router as userprefs_router
     from .admin_console import router as console_router
     from .update_api import router as update_router
+    from .cron import router as cron_router
     app.include_router(zones_router, dependencies=[Depends(guard("src"))])
     app.include_router(push_router, dependencies=[Depends(guard("push"))])
     for r in (marks_router, feedback_router, userprefs_router, onboarding_router, admin_router, worker_runs_router, console_router,
-              update_router, pages_router):
+              update_router, cron_router, pages_router):
         app.include_router(r)
     app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "web" / "static")), name="static")
 

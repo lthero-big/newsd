@@ -134,3 +134,7 @@ Default `NEWSD_REGISTRATION=invite`: the admin runs `newsd admin invite` and han
 - The admin page "日志与任务" (logs & tasks) and `newsd worker runs` show each pipeline run's timeline, per-user results and errors; its "推送记录" section and `newsd push list` show delivery results; "源健康" (source health) shows per-source fetch status.
 - Webhooks to private addresses are refused by default (SSRF protection); set `NEWSD_PUSH_ALLOW_PRIVATE=1` if you really need them.
 - `database is locked`: occasional with SQLite when several processes write; the connection timeout is already 30 s. Switch to Postgres under heavy write load.
+
+## Vercel + Supabase
+
+Experimental, see [vercel.md](vercel.md) (Chinese).

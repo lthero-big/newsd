@@ -1,0 +1,43 @@
+# Scheduler for newsd deployments without their own worker (Vercel Hobby allows only one cron a day).
+# Copy this file to .github/workflows/newsd-tick.yml in your fork, then in the fork's Settings → Secrets and variables → Actions:
+#   variable NEWSD_URL         = https://<your-app>.vercel.app
+#   secret   NEWSD_CRON_SECRET = the same value as CRON_SECRET in the Vercel project
+# Each run calls /api/cron/tick: the daily pipeline runs once per NEWSD_WORKER_TIMES slot (later ticks for the same slot
+# do nothing), and push deliveries go out at each user's own time. GitHub may delay scheduled runs by several minutes, and
+# disables schedules in repositories with no activity for 60 days.
+name: newsd tick
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      run:
+        description: "auto = run the pipeline when due, force = run it now, skip = push deliveries only"
+        type: choice
+        options: [auto, force, skip]
+        default: auto
+
+permissions: {}
+
+concurrency:
+  group: newsd-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    if: vars.NEWSD_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - name: Call /api/cron/tick
+        env:
+          URL: ${{ vars.NEWSD_URL }}
+          KEY: ${{ secrets.NEWSD_CRON_SECRET }}
+          RUN: ${{ inputs.run || 'auto' }}
+        run: |
+          test -n "$KEY" || { echo "::error::secret NEWSD_CRON_SECRET is not set"; exit 1; }
+          code=$(curl -sS -o tick.json -w '%{http_code}' --max-time 900 \
+            -H "Authorization: Bearer $KEY" "${URL%/}/api/cron/tick?run=$RUN")
+          cat tick.json; echo
+          test "$code" = 200 || { echo "::error::tick returned HTTP $code"; exit 1; }

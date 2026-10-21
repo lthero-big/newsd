@@ -18,14 +18,22 @@ dependencies = [
   "alembic>=1.13",
   "trafilatura>=1.8",
   "tzdata",  # NEWSD_WORKER_TZ on slim images
+  "psycopg[binary]>=3.1",  # Postgres (Supabase on Vercel, compose profile); Vercel installs only these core dependencies
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
-postgres = ["psycopg[binary]>=3.1"]
+postgres = ["psycopg[binary]>=3.1"]  # kept for existing install commands; now a core dependency
 
 [project.scripts]
 newsd = "newsd.cli:main"
+
+# Vercel (DEPTAI-216 4d): the app and its build step, see docs/vercel.md and vercel.json
+[tool.vercel]
+entrypoint = "newsd.vercel:app"
+
+[tool.vercel.scripts]
+build = "python -m newsd.vercel_build"
 
 [build-system]
 requires = ["setuptools>=77"]

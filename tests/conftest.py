@@ -1,9 +1,10 @@
+from tests.dburl import db_url
 import pytest
 
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("NEWSD_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
+    monkeypatch.setenv("NEWSD_DATABASE_URL", db_url(tmp_path, "t"))
     monkeypatch.setenv("NEWSD_SECRET_KEY", "test-secret")
     monkeypatch.setenv("NEWSD_ENV_FILE", str(tmp_path / "none.env"))
     from newsd.db import reset_engine

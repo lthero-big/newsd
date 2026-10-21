@@ -72,14 +72,10 @@ def _naive(dt: datetime | None) -> datetime | None:
 
 def subscribed_sources(db) -> list[Source]:
     """Enabled sources with at least one enabled subscription by an active user (each source once)."""
-    stmt = (
-        select(Source)
-        .join(Subscription, Subscription.source_id == Source.id)
-        .join(User, User.id == Subscription.user_id)
-        .where(Source.enabled.is_(True), Subscription.enabled.is_(True), User.active.is_(True))
-        .distinct()
-        .order_by(Source.id)
-    )
+    # "id IN (subquery)" rather than SELECT DISTINCT over whole rows: Postgres has no equality operator for json columns
+    subscribed = (select(Subscription.source_id).join(User, User.id == Subscription.user_id)
+                  .where(Subscription.enabled.is_(True), User.active.is_(True)))
+    stmt = select(Source).where(Source.enabled.is_(True), Source.id.in_(subscribed)).order_by(Source.id)
     return list(db.scalars(stmt))
 
 
@@ -87,15 +83,9 @@ def user_items(db, user_id: int, since: datetime | None = None, limit: int = 500
     """Pool items carried by any source the user is subscribed to (the per-user view of the shared pool).
     Sources in a disabled zone (DEPTAI-216 3b) count as off."""
     from ..zones import active_filter
-    stmt = (
-        select(PoolItem)
-        .join(PoolItemSource, PoolItemSource.item_id == PoolItem.id)
-        .join(Subscription, Subscription.source_id == PoolItemSource.source_id)
-        .where(Subscription.user_id == user_id, Subscription.enabled.is_(True), active_filter())
-        .distinct()
-        .order_by(PoolItem.first_seen_at.desc())
-        .limit(limit)
-    )
+    carried = (select(PoolItemSource.item_id).join(Subscription, Subscription.source_id == PoolItemSource.source_id)
+               .where(Subscription.user_id == user_id, Subscription.enabled.is_(True), active_filter()))
+    stmt = select(PoolItem).where(PoolItem.id.in_(carried)).order_by(PoolItem.first_seen_at.desc(), PoolItem.id.desc()).limit(limit)
     if since is not None:
         stmt = stmt.where(PoolItem.first_seen_at >= since)
     return list(db.scalars(stmt))
