@@ -447,6 +447,7 @@ table.lt .mod{white-space:nowrap}
 .umenu-pop .who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}.umenu-pop .who small{display:block;color:var(--muted);font-size:12px}
 .umenu-pop .grp{font:600 10.5px var(--font-mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase;padding:8px 10px 4px}
 .umenu-pop a{padding:7px 10px;border-radius:8px;font-size:14px}.umenu-pop a:hover{background:var(--surface-2)}
+.umenu-pop a.sub{padding:5px 10px 5px 24px;font-size:13px;color:var(--muted)}
 .umenu-pop hr{border:0;border-top:1px solid var(--line);margin:6px 0}
 /* console area */
 .ctop{background:var(--surface)}
@@ -458,7 +459,11 @@ table.lt .mod{white-space:nowrap}
 .cside a{padding:8px 12px;border-radius:10px;color:var(--muted);font-size:14px}
 .cside a:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent)}.cside a[aria-current]{color:var(--ink);background:var(--surface);border:1px solid var(--line);font-weight:600}
 .console>main{min-width:0;padding-bottom:90px}
-@media (max-width:900px){.console{grid-template-columns:1fr;gap:0}.cside{position:static;flex-direction:row;overflow-x:auto;padding:12px 0 0;gap:4px;scrollbar-width:none}.cside .grp{margin:0 4px 0 10px;align-self:center;white-space:nowrap}.cside a{white-space:nowrap}.ctop .carea{display:none}}
+/* /settings is one page: its sections sit under 偏好与主题 as an indented sub-list (the current one follows the scroll) */
+.cside .csub{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px 14px;padding-left:8px;border-left:1px solid var(--line)}
+.cside .csub a{padding:5px 10px;font-size:13px;border-radius:8px}
+.cside .csub a[aria-current]{background:none;border:0;color:var(--accent);font-weight:600}
+@media (max-width:900px){.console{grid-template-columns:1fr;gap:0}.cside{position:static;flex-direction:row;overflow-x:auto;padding:12px 0 0;gap:4px;scrollbar-width:none}.cside .grp{margin:0 4px 0 10px;align-self:center;white-space:nowrap}.cside a{white-space:nowrap}.cside .csub{flex-direction:row;margin:0;padding-left:4px;border-left:1px solid var(--line);gap:2px}.cside a[aria-expanded="false"]+.csub{display:none}.ctop .carea{display:none}}
 @media (max-width:640px){.ctop .back{display:none}}
 /* cards */
 .acts .a-down svg{transform:none}

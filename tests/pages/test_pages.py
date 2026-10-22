@@ -168,3 +168,23 @@ def test_theme_and_push_validation(client):
     # v1 palette names still work and map onto the closest v2 theme
     assert client.put("/api/me/theme", json={"palette": "amber"}).json() == {"palette": "now-playing"}
     assert 'data-theme="now-playing"' in client.get("/login").text
+
+
+def test_settings_sections_nest_under_preferences_in_page_order(client):
+    """/settings is one page: its sections are a sub-list of 偏好与主题 in the sidebar, in the order the page shows them,
+    and every sub-link points at a section that exists (DEPTAI-216 follow-up)."""
+    import re
+    from pagekit import register
+    register(client, "nina")
+    s = client.get("/settings").text
+    side = s[s.index('<aside class="cside"'):s.index("</aside>")]
+    parent = side.index('data-k="settings" aria-current="page" aria-expanded="true">偏好与主题</a>')
+    sub = side[parent:side.index("</div>", parent)]
+    keys = re.findall(r'data-sec="(\w+)"', sub)
+    assert keys == ["prefs", "learn", "theme", "acct", "more"]
+    page = s[s.index("</aside>"):]
+    order = [page.index(f'id="{k}"') for k in keys]
+    assert order == sorted(order)  # same order as the page
+    assert side.count('href="/settings#') == 5 and side.index('href="/settings#') > parent  # no anchor is a top-level sibling
+    o = client.get("/sources").text
+    assert 'data-k="settings" aria-expanded="false">偏好与主题</a><div class="csub"' in o

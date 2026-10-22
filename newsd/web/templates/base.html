@@ -13,7 +13,7 @@
 {% macro modebtn() %}<button class="ibtn mode-btn" type="button" aria-label="切换浅色 / 深色"><span class="mi mi-sun">{{ IC.sun|safe }}</span><span class="mi mi-moon">{{ IC.moon|safe }}</span></button>{% endmacro %}
 {% macro acct() %}<div class="umenu"><button class="avatar" type="button" aria-haspopup="menu" aria-expanded="false" title="{{ user.username }}">{{ user.username[:2]|upper }}</button><div class="umenu-pop" role="menu" hidden>
  <div class="who"><b>{{ user.username }}</b><small>{{ "管理员" if user.role == "admin" else "成员" }}</small></div>
- {% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k in items %}<a role="menuitem" href="{{ h }}">{{ t }}</a>{% endfor %}{% endif %}{% endfor %}
+ {% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k, sub in items %}<a role="menuitem" href="{{ h }}">{{ t }}</a>{% for sh, st, sk in sub %}<a role="menuitem" class="sub" href="{{ sh }}">{{ st }}</a>{% endfor %}{% endfor %}{% endif %}{% endfor %}
  <hr><form method="post" action="/logout" class="logout"><button role="menuitem" type="submit">退出登录</button></form></div></div>{% endmacro %}
 {% if user and area == "read" %}
 <header class="top"><i class="prog" aria-hidden="true"></i><div class="wrap"><a class="logo" href="/" aria-label="newsd 首页"><span class="glyph">N</span><span class="word">news<b>d</b></span></a>
@@ -24,7 +24,7 @@
 {% elif user and area == "console" %}
 <header class="top ctop"><div class="wrap"><a class="logo" href="/" aria-label="返回阅读"><span class="glyph">N</span><span class="word">news<b>d</b></span></a><span class="carea">设置与管理</span>
  <a class="btn sm ghost back" href="/">← 返回阅读</a>{{ tsw() }}<div class="right">{{ modebtn() }}{{ acct() }}</div></div></header>
-<div class="console wrap"><aside class="cside" aria-label="设置与管理">{% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k in items %}<a href="{{ h }}" data-k="{{ k }}"{% if k == page %} aria-current="page"{% endif %}>{{ t }}</a>{% endfor %}{% endif %}{% endfor %}</aside>
+<div class="console wrap"><aside class="cside" aria-label="设置与管理">{% for g, items, admin in console_nav %}{% if not admin or user.role == "admin" %}<div class="grp">{{ g }}</div>{% for h, t, k, sub in items %}<a href="{{ h }}" data-k="{{ k }}"{% if k == page %} aria-current="page"{% endif %}{% if sub %} aria-expanded="{{ 'true' if k == page else 'false' }}"{% endif %}>{{ t }}</a>{% if sub %}<div class="csub" role="group" aria-label="{{ t }}：本页分区">{% for sh, st, sk in sub %}<a href="{{ sh }}" data-k="{{ sk }}" data-sec="{{ sk }}">{{ st }}</a>{% endfor %}</div>{% endif %}{% endfor %}{% endif %}{% endfor %}</aside>
 <main>{% block console %}{% endblock %}</main></div>
 {% else %}{% block auth %}{% endblock %}{% endif %}
 <script>window.ND_CFG={user:{{ (user.username if user else none)|tojson }},role:{{ (user.role if user else none)|tojson }}};

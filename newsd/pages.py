@@ -37,13 +37,15 @@ MODULES = (("model", "模型新闻", "新模型、版本发布与榜单"), ("ope
            ("community", "社区新闻", "HN、Reddit 与 X 上的讨论"), ("news", "资讯", "媒体与博客报道"))
 MODULE_NAMES = {m: label for m, label, _sub in MODULES}
 READ_NAV = (("/", "日报", "issue", "◐"), ("/favorites", "收藏", "favorites", "♡"), ("/calendar", "归档", "calendar", "▦"))
-# (group, [(href, label, page key)], admin only). 3b: 订阅源 / 模型 have their own pages; 3c splits 管理.
-CONSOLE_NAV = (("个人", (("/sources", "订阅源", "sources"), ("/models", "模型", "models"), ("/settings", "偏好与主题", "settings"),
-                         ("/settings#learn", "学到的偏好", "learn"), ("/settings#more", "关键词、配额与推送", "more"),
-                         ("/settings#acct", "账号", "acct")), False),
-               ("管理", (("/admin", "概览", "admin"), ("/admin/users", "用户与分组", "users"), ("/admin/health", "源健康", "health"),
-                        ("/admin/logs", "日志与任务", "logs")), True))
-LOGS_NAV = ("管理", (("/admin/logs", "日志与任务", "logs"),), False)  # 3c: a member granted the logs permission
+# (group, [(href, label, page key, [(anchor href, label, section key)])], admin only). 3b: 订阅源 / 模型 have their own pages;
+# 3c splits 管理. /settings is ONE page, so its sections are nested under 偏好与主题 in the order the page shows them.
+SETTINGS_SECTIONS = (("/settings#prefs", "阅读与反馈", "prefs"), ("/settings#learn", "学到的偏好", "learn"), ("/settings#theme", "主题", "theme"),
+                     ("/settings#acct", "账号", "acct"), ("/settings#more", "关键词、配额与推送", "more"))
+CONSOLE_NAV = (("个人", (("/sources", "订阅源", "sources", ()), ("/models", "模型", "models", ()),
+                         ("/settings", "偏好与主题", "settings", SETTINGS_SECTIONS)), False),
+               ("管理", (("/admin", "概览", "admin", ()), ("/admin/users", "用户与分组", "users", ()), ("/admin/health", "源健康", "health", ()),
+                        ("/admin/logs", "日志与任务", "logs", ())), True))
+LOGS_NAV = ("管理", (("/admin/logs", "日志与任务", "logs", ()),), False)  # 3c: a member granted the logs permission
 WEEK = "一二三四五六日"
 _STATIC = Path(__file__).parent / "web" / "static" / "v2"
 ASSET_V = format(int(max((f.stat().st_mtime for f in _STATIC.iterdir()), default=0)), "x")

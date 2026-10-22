@@ -216,8 +216,9 @@ def test_source_health_states_and_retry(client, monkeypatch):
     t = now()
 
     def f(key, i, status, entries=5):
-        db.add(SourceFetch(source_id=S[key].id, cycle=f"c{i}", status=status, entries=entries, started_at=t - timedelta(hours=3 - i),
-                           finished_at=t - timedelta(hours=3 - i) + timedelta(seconds=2)))
+        # minutes apart, not hours: the 7-day history buckets by day, so hour spacing split the fixture across midnight (fails 00:00-03:00 UTC)
+        db.add(SourceFetch(source_id=S[key].id, cycle=f"c{i}", status=status, entries=entries, started_at=t - timedelta(minutes=3 - i),
+                           finished_at=t - timedelta(minutes=3 - i) + timedelta(seconds=2)))
     for i in range(3):
         f("rss:ok", i, "ok")
         f("rss:quiet", i, "ok", 0)

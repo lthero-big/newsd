@@ -24,6 +24,11 @@
   if(!ok){$('#learnOn').setAttribute('aria-checked',String(!on));return ND.error(j)}ND.toast(on?'已恢复学习':'已暂停学习：删除 / 踩暂不影响排序')});
  load();
  if(location.hash)setTimeout(()=>{const t=document.querySelector(location.hash);t&&t.scrollIntoView()},50);
- const side=()=>{const k={'#learn':'learn','#acct':'acct'}[location.hash]||'settings';$$('.cside a').forEach(a=>a.toggleAttribute('aria-current',a.dataset.k===k))};
- addEventListener('hashchange',side);side();
+ // sidebar: 偏好与主题 stays current; inside it, the section you are reading (scroll position, else the #hash) is highlighted
+ const secs=[...document.querySelectorAll('.cside .csub a[data-sec]')].map(a=>[a,document.getElementById(a.dataset.sec)]).filter(x=>x[1]);
+ const side=()=>{let cur=secs.length?secs[0][0]:null;
+  for(const [a,el] of secs)if(el.getBoundingClientRect().top<=130)cur=a;
+  if(innerHeight+scrollY>=document.documentElement.scrollHeight-4&&secs.length)cur=secs[secs.length-1][0];
+  secs.forEach(([a])=>a.toggleAttribute('aria-current',a===cur));};
+ addEventListener('hashchange',side);addEventListener('scroll',side,{passive:true});side();
 })();
