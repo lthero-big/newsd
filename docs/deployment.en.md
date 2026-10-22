@@ -43,7 +43,7 @@ docker compose logs -f worker
 ### Image
 
 - The `Dockerfile` is multi-stage: the build stage installs newsd and its dependencies (Postgres driver included) into a virtualenv; the runtime stage copies only that virtualenv (no sources, no compilers) and runs as the unprivileged user `newsd` (uid 10001). Data lives in `/data`.
-- Pushing a release tag `vX.Y.Z` makes GitHub Actions build amd64 + arm64 images and push them to `ghcr.io/lthero-big/newsd` as `X.Y.Z`, `X.Y` and `latest`, after a smoke test (starts, `/healthz` answers, runs as uid 10001).
+- Pushing a release tag `vX.Y.Z` makes GitHub Actions build amd64 + arm64 images and push them to Docker Hub `lthero1/newsd` and `ghcr.io/lthero-big/newsd` as `X.Y.Z`, `X.Y` and `latest`, after a smoke test (starts, `/healthz` answers, runs as uid 10001).
 - Released image: `docker compose pull && docker compose up -d` (`NEWSD_VERSION` in `.env` pins a version, default `latest`). Build the checkout yourself: `docker compose up -d --build`.
 - Slow or blocked PyPI: `docker compose build --build-arg PYPI_MIRROR=https://your-mirror/simple`.
 

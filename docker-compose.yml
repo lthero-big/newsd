@@ -2,9 +2,9 @@
 #   docker compose up -d                          # SQLite in the newsd-data volume (default)
 #   COMPOSE_PROFILES=postgres docker compose up -d  # bundled Postgres (set NEWSD_DATABASE_URL, see .env.example)
 #   docker compose --profile updater up -d        # + web "update" button (docs/updates.md)
-# Image: NEWSD_IMAGE:NEWSD_VERSION (default ghcr.io/lthero-big/newsd:latest); `up -d --build` builds this checkout.
+# Image: NEWSD_IMAGE:NEWSD_VERSION (default lthero1/newsd:latest); `up -d --build` builds this checkout.
 x-newsd: &newsd
-  image: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}:${NEWSD_VERSION:-latest}
+  image: ${NEWSD_IMAGE:-lthero1/newsd}:${NEWSD_VERSION:-latest}
   env_file: .env
   environment:
     NEWSD_DATABASE_URL: ${NEWSD_DATABASE_URL:-sqlite:////data/newsd.db}
@@ -54,12 +54,12 @@ services:
   # optional: web-triggered updates. The only container with the Docker socket; it pulls NEWSD_IMAGE:<release> and
   # recreates web and worker of this project. Not published on any port.
   updater:
-    image: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}:${NEWSD_VERSION:-latest}
+    image: ${NEWSD_IMAGE:-lthero1/newsd}:${NEWSD_VERSION:-latest}
     profiles: ["updater"]
     command: ["newsd", "updater"]
     env_file: .env
     environment:
-      NEWSD_IMAGE: ${NEWSD_IMAGE:-ghcr.io/lthero-big/newsd}
+      NEWSD_IMAGE: ${NEWSD_IMAGE:-lthero1/newsd}
     user: "0:0"  # to use /var/run/docker.sock
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

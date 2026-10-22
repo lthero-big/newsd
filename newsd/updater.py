@@ -122,7 +122,7 @@ class Updater:
     def __init__(self, docker: Docker | None = None, *, image: str | None = None, services: list[str] | None = None,
                  self_id: str | None = None, health_timeout: float = 180, grace: float = 8):
         self.d = docker or Docker()
-        self.image = (image or os.environ.get("NEWSD_IMAGE", "ghcr.io/lthero-big/newsd")).strip()
+        self.image = (image or os.environ.get("NEWSD_IMAGE", "lthero1/newsd")).strip()
         self.services = services or [s.strip() for s in os.environ.get("NEWSD_UPDATER_SERVICES", "web,worker").split(",") if s.strip()]
         self.self_id = self_id or socket.gethostname()
         self.health_timeout = health_timeout

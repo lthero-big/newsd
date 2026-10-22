@@ -24,7 +24,7 @@ docker compose --profile updater up -d
 ```
 
 - **只有 updater 挂载 Docker socket**，web 和 worker 都不挂；updater 不映射任何端口，只能在 compose 内部网络里访问，请求需要带上由 `NEWSD_SECRET_KEY` 派生的令牌。
-- updater 只做一件事：拉取 `NEWSD_IMAGE:<版本>`（默认 `ghcr.io/lthero-big/newsd`），然后**只**重建它所在的 compose 项目里 `NEWSD_UPDATER_SERVICES`（默认 `web,worker`）这些服务的容器，先 web、后 worker。新容器沿用原来的环境变量、数据卷、端口、网络、标签、重启策略和健康检查，只换镜像。
+- updater 只做一件事：拉取 `NEWSD_IMAGE:<版本>`（默认 `lthero1/newsd`），然后**只**重建它所在的 compose 项目里 `NEWSD_UPDATER_SERVICES`（默认 `web,worker`）这些服务的容器，先 web、后 worker。新容器沿用原来的环境变量、数据卷、端口、网络、标签、重启策略和健康检查，只换镜像。
 - 新的 web 容器启动时会自动执行数据库迁移（每次启动都会），所以「拉取 + 重建」就是完整的升级。
 - **自动回滚**：新的 web 容器没有通过健康检查时，会删掉新容器、把旧容器改回原名重新启动，worker 不会被动到。
 - updater 本身不会被更新；需要时手动 `docker compose pull updater && docker compose --profile updater up -d updater`。

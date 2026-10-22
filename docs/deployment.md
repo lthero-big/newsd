@@ -43,7 +43,7 @@ docker compose logs -f worker
 ### 镜像
 
 - `Dockerfile` 是多阶段构建：第一阶段在虚拟环境里装好 newsd 和依赖（已包含 Postgres 驱动），运行阶段只复制虚拟环境，不带源码和编译工具；进程以非 root 用户 `newsd`（uid 10001）运行，数据在 `/data`。
-- 发布版本（打 `vX.Y.Z` 标签）时，GitHub Actions 会构建 amd64 和 arm64 镜像并推送到 `ghcr.io/lthero-big/newsd`，标签为 `X.Y.Z`、`X.Y` 和 `latest`。推送前会先做一次冒烟测试（能启动、`/healthz` 正常、以 uid 10001 运行）。
+- 发布版本（打 `vX.Y.Z` 标签）时，GitHub Actions 会构建 amd64 和 arm64 镜像并推送到 Docker Hub `lthero1/newsd` 和 `ghcr.io/lthero-big/newsd`，标签为 `X.Y.Z`、`X.Y` 和 `latest`。推送前会先做一次冒烟测试（能启动、`/healthz` 正常、以 uid 10001 运行）。
 - 用已发布的镜像：`docker compose pull && docker compose up -d`（`.env` 里 `NEWSD_VERSION` 可以固定版本，默认 `latest`）。用当前代码自己构建：`docker compose up -d --build`。
 - PyPI 慢或不可用时：`docker compose build --build-arg PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple`。
 
