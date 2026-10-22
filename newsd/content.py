@@ -29,7 +29,7 @@ _MD_STAR = re.compile(r"(?<![\w*])\*(?!\s)([^*\n]+?)(?<!\s)\*(?![\w*])")
 _MD_CODE = re.compile(r"`{1,3}([^`]*)`{1,3}")
 _MD_ESC = re.compile(r"\\([\\`*_{}\[\]()#+\-.!|<>~])")
 _MD_HEAD = re.compile(r"(^|\n)\s{0,3}#{1,6}\s+")
-_TAGS = re.compile(r"<[^>]+>")
+_TAGS = re.compile(r"</?[A-Za-z!][^<>]*>")
 _PR_REF = re.compile(r"\(\s*#\d+\s*\)|\(\s*(?:https?://github\.com/\S+/pull/\d+)\s*\)")
 _TRAILERS = re.compile(r"\b(?:Co-authored-by|Signed-off-by|Reviewed-by|Approved-by)\s*:\s*[^\n]*?(?=$|\n|\s(?:Co-authored-by|Signed-off-by)\b"
                        r"|\s[A-Z][\w/ ]{1,20}:\s)", re.I)
@@ -37,6 +37,7 @@ _TRAILERS = re.compile(r"\b(?:Co-authored-by|Signed-off-by|Reviewed-by|Approved-
 _BOILER = re.compile(r"\s(?:Website|Attestations|macOS/iOS|Windows|Linux|openEuler|Docker|Downloads?|Assets|Full Changelog|"
                      r"New Contributors|Checksums?|SHA256|Installation|Binaries)\s*:", re.I)
 _BY_USER = re.compile(r"\s+by @[\w-]+(?:\s+in\s+(?:https?://\S+|#\d+))?", re.I)
+_REDDIT_FOOTER = re.compile(r"\s*submitted by\s+/u/[\w-]+\s*(?:\[link\])?\s*(?:\[comments\])?", re.I)
 _URL_ONLY = re.compile(r"^\s*https?://\S+\s*$")
 _WS = re.compile(r"\s+")
 
@@ -56,10 +57,9 @@ def strip_markdown(text: str) -> str:
 
 def clean_text(text: str | None) -> str:
     """Readable single-line plain text from feed HTML / markdown / changelog text."""
-    s = text or ""
+    s = unescape(unescape(text or ""))  # feeds double-escape HTML bodies
     if "<" in s and ">" in s:
         s = _TAGS.sub(" ", s)
-    s = unescape(unescape(s))
     s = strip_markdown(s)
     s = _TRAILERS.sub(" ", s)
     m = _BOILER.search(" " + s)
@@ -67,6 +67,7 @@ def clean_text(text: str | None) -> str:
         s = s[: m.start() - 1]
     s = _PR_REF.sub(" ", s)
     s = _BY_USER.sub("", s)
+    s = _REDDIT_FOOTER.sub(" ", s)
     s = _WS.sub(" ", s).strip()
     return _collapse_repeat(s)
 
@@ -96,10 +97,12 @@ def truncate(s: str, limit: int) -> str:
     return cut.rstrip(" ,;:，、") + "…"
 
 
-def clean_summary(text: str | None, limit: int = 240) -> str:
+def clean_summary(text: str | None, limit: int = 240, title: str | None = None) -> str:
     s = clean_text(text)
     if _URL_ONLY.match(s):
         return ""  # a link-only body says nothing; the card already links out
+    if title and s.casefold() in clean_text(title).casefold():
+        return ""  # "ComfyUI v0.42.4" under the title "ComfyUI v0.42.4"
     return truncate(s, limit)
 
 

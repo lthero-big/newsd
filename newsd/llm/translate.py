@@ -57,6 +57,28 @@ def _system(lang: str) -> str:
             '只输出 JSON：{"translations": [{"i": <输入编号>, "text": "<译文>"}]}')
 
 
+CHUNK_CHARS = 5000  # source characters per request, so the reply fits the output budget (a cut-off reply loses the batch)
+
+
+def _chunks(texts: list[str]) -> list[list[str]]:
+    out, cur, size = [], [], 0
+    for t in texts:
+        n = len(normalize(t))
+        if cur and (len(cur) >= BATCH or size + n > CHUNK_CHARS):
+            out.append(cur)
+            cur, size = [], 0
+        cur.append(t)
+        size += n
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _budget(chunk: list[str]) -> int:
+    """Output tokens for a chunk: ~1.3 tokens per source character plus JSON overhead, 1k..8k."""
+    return max(1024, min(8192, int(sum(len(normalize(t)) for t in chunk) * 1.3) + 40 * len(chunk) + 200))
+
+
 async def translate_texts(db, client: LLMClient | None, texts: list[str], lang: str = "zh") -> tuple[dict[str, str], dict]:
     """Return ({source text: translation}, stats). Texts that need no translation are skipped.
     With client None only cache hits are returned (no model calls)."""
@@ -67,12 +89,12 @@ async def translate_texts(db, client: LLMClient | None, texts: list[str], lang: 
     misses = [t for t in todo if t not in result]
     if client is None or not misses:
         return result, stats
-    chunks = [misses[i:i + BATCH] for i in range(0, len(misses), BATCH)]
+    chunks = _chunks(misses)
 
     async def one(chunk):
         payload = json.dumps([{"i": i, "text": normalize(t)} for i, t in enumerate(chunk)], ensure_ascii=False)
         try:
-            return await client.complete_json(_system(lang), payload, max_tokens=4096)
+            return await client.complete_json(_system(lang), payload, max_tokens=_budget(chunk))
         except LLMError:
             return None
 

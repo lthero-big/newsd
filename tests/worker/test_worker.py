@@ -48,6 +48,9 @@ def llm_responder(system, user, body, request):
         return '{"groups": []}'
     if "主编" in system:
         return json.dumps({"order": [i["id"] for i in json.loads(user)]})
+    if "摘要卡片" in system:  # per-item digest (DEPTAI-216)
+        return json.dumps({"items": [{"i": r["i"], "title": "译:" + r["title"], "summary": "摘要：" + r["title"]}
+                                     for r in json.loads(user)]}, ensure_ascii=False)
     if "翻译成" in system:
         return json.dumps({"translations": [{"i": r["i"], "text": "译:" + r["text"]} for r in json.loads(user)]}, ensure_ascii=False)
     raise AssertionError("unexpected prompt: " + system[:80])

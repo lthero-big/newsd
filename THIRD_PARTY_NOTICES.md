@@ -6,7 +6,12 @@ newsd itself is released under the [MIT License](LICENSE). This file lists what 
 
 Parts of newsd were designed after [Horizon](https://github.com/Thysrael/Horizon): the multi-provider LLM client layout
 (`newsd/llm/client.py`), the `#{variable}` webhook template syntax (`newsd/push/template.py`), the plugin-style fetchers
-(`newsd/collector/plugins.py`) and the Feishu card JSON sample used in the Feishu webhook template. As far as the history
+(`newsd/collector/plugins.py`), the Feishu card JSON sample used in the Feishu webhook template, and (DEPTAI-216) the
+per-item summary step in `newsd/llm/digest.py` -- Horizon's analysis/enrichment approach of giving the model title,
+source, URL, engagement and a head-middle-tail (40/30/30) excerpt, treating every item field as untrusted data, forbidding
+invented facts, and asking for a localized title plus a short "what happened / why it matters" summary as JSON -- and the
+"<repo> <tag>" title shape for GitHub release items in `newsd/content.py`. newsd batches items per request and caches the
+result for all users, where Horizon analyses one item per call. As far as the history
 shows these are re-implementations rather than verbatim copies, but because the ideas, wire formats and one JSON sample come from
 Horizon, its notice is reproduced here:
 

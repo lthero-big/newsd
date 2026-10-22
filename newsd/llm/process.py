@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from newsd.content import clean_summary, display_title
 from newsd.models import ItemScore, Keyword, PoolItem
 from newsd.pool.collector import item_text, user_items
 
@@ -195,7 +196,8 @@ async def _rerank(client: LLMClient, cands: list[dict], report: dict) -> list[di
 # ------------------------------------------------------------------------------------------ entry point
 
 def _card(it: PoolItem, rule: float) -> dict:
-    return {"id": it.id, "title": it.title, "url": it.url, "summary": (it.summary or "")[:400], "published_at":
+    return {"id": it.id, "title": display_title(it.title, it.url, it.summary), "url": it.url,
+            "summary": clean_summary(it.summary, 400), "published_at":
             it.published_at.isoformat() if it.published_at else None, "rule_score": rule, "score": None,
             "profile": None, "section": None, "reason": None}
 

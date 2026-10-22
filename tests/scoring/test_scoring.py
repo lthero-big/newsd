@@ -149,6 +149,9 @@ def _scoring_llm(scores):
             return '{"groups": []}'
         if "主编" in system:
             return json.dumps({"order": [i["id"] for i in json.loads(user)]})
+        if "摘要卡片" in system:
+            return json.dumps({"items": [{"i": r["i"], "title": "译" + r["title"], "summary": "这是摘要。值得关注。"}
+                                         for r in json.loads(user)]}, ensure_ascii=False)
         if "翻译成" in system:
             return json.dumps({"translations": [{"i": r["i"], "text": "译" + str(r["i"])} for r in json.loads(user)]},
                               ensure_ascii=False)
@@ -193,3 +196,70 @@ def test_model_auth_error_falls_back_to_rules(db):
             return await build_issue(db, u.id, "d1", client=c)
     rep = asyncio.run(go())
     assert rep["stopped"] is True and ids(db, u) == [a.id] and len(fake.calls) == 1
+
+
+LLAMA = ("llama: create new fused op for QSA mask ( #30640 ) llama: create new fused op for QSA mask "
+         "tests: initialize remaining tensors in test\\_kpool\\_mask Co-authored-by: Georgi Gerganov g@example.com "
+         "Website: https://llama.app Attestations: https://github.com/ggml-org/llama.cpp/attestations/1")
+REL = "https://github.com/ggml-org/llama.cpp/releases/tag/b11800"
+
+
+def test_release_title_and_clean_summary_without_model(db):
+    from newsd.issues import issue_view
+    p = Pool(db)
+    rel = p.item("b11800", url=REL, kind="release", summary=LLAMA)
+    u = p.user("rex", interest=["llama"])
+    build(db, u)
+    issue = db.scalar(select(Issue).where(Issue.user_id == u.id))
+    (it,) = [i for i in issue_view(db, issue)["items"] if i["item_id"] == rel.id]
+    assert it["title"] == "llama.cpp b11800: llama: create new fused op for QSA mask"
+    assert "test_kpool_mask" in it["summary"] and "\\_" not in it["summary"]
+    assert "#30640" not in it["summary"] and "Co-authored-by" not in it["summary"] and "Attestations" not in it["summary"]
+    assert it["summary"].count("create new fused op for QSA mask") == 1
+    assert it["title_translated"] is None and it["summary_translated"] is None
+
+
+def test_model_digest_replaces_literal_translation_and_is_cached(db, monkeypatch):
+    p = Pool(db)
+    rel = p.item("b11800", url=REL, kind="release", summary=LLAMA)
+    u = p.user("dora", interest=["llama"])
+    keys.save_settings(db, u.id, "openai", "gpt-4o-mini", KEY)
+    fake = FakeLLM("openai", _scoring_llm({rel.id: 8}))
+    monkeypatch.setattr(keys, "TRANSPORT", fake.transport)
+    rep = build(db, u, client="auto")
+    row = db.scalar(select(IssueItem).where(IssueItem.item_id == rel.id))
+    assert row.title_translated == "译llama.cpp b11800: llama: create new fused op for QSA mask"
+    assert row.summary_translated == "这是摘要。值得关注。"
+    assert rep["digest"]["generated"] == 1
+    dig = [c for c in fake.calls if "摘要卡片" in c["system"]]
+    assert len(dig) == 1 and not [c for c in fake.calls if "翻译成" in c["system"]]  # no literal translation
+    sent = json.loads(dig[0]["user"])[0]
+    assert sent["release"] == "ggml-org/llama.cpp b11800" and "\\_" not in sent["text"] and "Attestations" not in sent["text"]
+    assert "不可信" in dig[0]["system"] and "不要编造" in dig[0]["system"]
+    build(db, u, client="auto")  # rebuild: digest comes from the shared cache
+    assert len([c for c in fake.calls if "摘要卡片" in c["system"]]) == 1
+    # another user without a key still gets the cached digest (no model call)
+    v = p.user("vic", interest=["llama"])
+    build(db, v)
+    issue = db.scalar(select(Issue).where(Issue.user_id == v.id))
+    assert db.scalar(select(IssueItem).where(IssueItem.issue_id == issue.id)).summary_translated == "这是摘要。值得关注。"
+
+
+def test_invalid_digest_falls_back_to_translation(db, monkeypatch):
+    p = Pool(db)
+    a = p.item("Qwen model news", summary="Qwen ships a **new** model with a long context window.")
+    u = p.user("finn", interest=["Qwen"])
+    keys.save_settings(db, u.id, "openai", "gpt-4o-mini", KEY)
+    base = _scoring_llm({a.id: 8})
+
+    def reply(system, user, body, request):
+        if "摘要卡片" in system or "Fix this" in user:
+            return "not json"
+        return base(system, user, body, request)
+    fake = FakeLLM("openai", reply)
+    monkeypatch.setattr(keys, "TRANSPORT", fake.transport)
+    rep = build(db, u, client="auto")
+    row = db.scalar(select(IssueItem).where(IssueItem.item_id == a.id))
+    assert rep["digest"]["failed"] == 1 and row.title_translated == "译0" and row.summary_translated == "译1"
+    tr = [c for c in fake.calls if "翻译成" in c["system"]]
+    assert "**" not in tr[0]["user"]  # the cleaned summary is what gets translated

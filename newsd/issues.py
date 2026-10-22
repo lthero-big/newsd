@@ -17,11 +17,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
 from .auth import get_db, require_user
-from .content import safe_media
+from .content import clean_summary, clean_text, display_title, safe_media
 from .llm import keys as llm_keys
 from .llm.client import LLMClient
 from .llm.process import _dedupe as ai_dedupe, _rerank as ai_rerank, _score_profile
 from .llm.profiles import all_profiles, get_picks
+from .llm.digest import digest_items
 from .llm.translate import translate_texts
 from .feedback import adjust_candidates, annotate
 from .zones import SPECIAL, apply_to_candidates as apply_zones, special_keys
@@ -49,7 +50,8 @@ def candidates(db, user_id: int, since: datetime | None, limit: int = 1000) -> t
     out = []
     for it in items:
         ss = srcs.get(it.id, [])
-        out.append(Candidate(item_id=it.id, title=it.title or "", url=it.url, summary=it.summary or "",
+        out.append(Candidate(item_id=it.id, title=display_title(it.title, it.url, it.summary), url=it.url,
+                             summary=clean_text(it.summary),
                              text=item_text(db, it) if it.extraction_id else "", kind=it.kind, published_at=it.published_at,
                              extra=it.extra or {}, source_keys=[s.key for s in ss], source_kinds=[s.kind for s in ss],
                              canonical_url=it.canonical_url))
@@ -195,13 +197,11 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
             cards = await ai_rerank(client, [_card(c) for c in selected], report)
             by_id = {c.item_id: c for c in selected}
             selected = [by_id[x["id"]] for x in cards]
-        tr = {}
+        tr: dict[int, dict] = {}
         if translate:
             step("translate")
             lang = llm_keys.translate_to(db, user_id)
-            texts = [c.title for c in selected] + [c.summary[:400] for c in selected if c.summary]
-            tr, stats = await translate_texts(db, None if client is None or report.get("stopped") else client, texts, lang)
-            report["translation"] = {"lang": lang, **stats}
+            tr = await _localize(db, None if client is None or report.get("stopped") else client, selected, lang, report)
         step("save")
         if client is not None:
             report["usage"] = usage_delta(client, before)
@@ -223,6 +223,34 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
     finally:
         if own:
             await client.aclose()
+
+
+async def _localize(db, client, selected: list[Candidate], lang: str, report: dict) -> dict[int, dict]:
+    """{item_id: {"title", "summary"}} for the issue. First a model digest per item (localized title + 1-3 sentence
+    summary, shared cache); items without one fall back to plain translation of the display title and the cleaned
+    summary (shared cache). Without a client both steps only read the caches."""
+    rows = []
+    for c in selected:
+        text = c.text or c.summary
+        rows.append({"id": c.item_id, "title": c.title, "url": c.url, "text": text,
+                     "source": (c.source_kinds or [""])[0], "points": (c.extra or {}).get("points"),
+                     "comments": (c.extra or {}).get("comments")})
+    dg, dstats = await digest_items(db, client, rows, lang)
+    report["digest"] = dstats
+    if dstats.get("stopped"):
+        report["stopped"] = True
+        client = None
+    out = {cid: dict(v) for cid, v in dg.items()}
+    rest = [c for c in selected if c.item_id not in out]
+    short = {c.item_id: clean_summary(c.summary, 400) for c in rest}
+    texts = [c.title for c in rest] + [s for s in short.values() if s]
+    tr, stats = await translate_texts(db, client, texts, lang)
+    report["translation"] = {"lang": lang, **stats}
+    for c in rest:
+        t, s = tr.get(c.title), tr.get(short[c.item_id]) if short[c.item_id] else None
+        if t or s:
+            out[c.item_id] = {"title": t, "summary": s}
+    return out
 
 
 def build_issue_sync(db, user_id: int, key: str | None = None, **kw) -> dict:
@@ -257,8 +285,8 @@ def _store(db, user_id, key, selected, dropped, tr, report, caps, since, now, n_
                          score=c.score, rule_score=c.rule_score, llm_score=(c.llm or {}).get("score"),
                          profile=(c.llm or {}).get("profile"), section=(c.llm or {}).get("section"),
                          matched=[{k: h[k] for k in ("term", "group", "locations", "kind", "weight")} for h in c.matched],
-                         categories=c.categories, also=c.also or None, title_translated=tr.get(c.title),
-                         summary_translated=tr.get(c.summary[:400]) if c.summary else None))
+                         categories=c.categories, also=c.also or None, title_translated=(tr.get(c.item_id) or {}).get("title"),
+                         summary_translated=(tr.get(c.item_id) or {}).get("summary")))
     db.commit()
     return issue
 
@@ -267,9 +295,11 @@ def _store(db, user_id, key, selected, dropped, tr, report, caps, since, now, n_
 
 def _item_dict(ii: IssueItem, p: PoolItem, srcs: dict, marks: dict, special: set | None = None) -> dict:
     keys = [s.key for s in srcs.get(p.id, [])]
+    title = display_title(p.title, p.url, p.summary)
     return {"source_section": SPECIAL if special and special & set(keys) else None,
-            "rank": ii.rank, "item_id": p.id, "title": p.title, "title_translated": ii.title_translated, "url": p.url,
-              "summary": p.summary, "summary_translated": ii.summary_translated, "image": p.image, "author": p.author,
+            "rank": ii.rank, "item_id": p.id, "title": title,
+              "title_translated": ii.title_translated, "url": p.url,
+              "summary": clean_summary(p.summary, 300, title), "summary_translated": ii.summary_translated, "image": p.image, "author": p.author,
               "published_at": p.published_at.isoformat() if p.published_at else None, "module": ii.module,
               "group": ii.group_name, "score": ii.score, "rule_score": ii.rule_score, "llm_score": ii.llm_score,
               "profile": ii.profile, "section": ii.section, "matched": [m["term"] for m in ii.matched or []],

@@ -142,6 +142,31 @@ def test_only_http_links_become_hrefs(client):
     assert "javascript:" not in html and "<script>alert(1)" not in html and "&lt;script&gt;alert(1)" in html
 
 
+def test_cards_render_media_safely(client):
+    from newsd.db import SessionLocal
+    register(client, "media")
+    db = SessionLocal()
+    p = Pool(db)
+    p.item("Pod episode", url="https://pod.example/ep1",
+           extra={"media": [{"type": "audio", "url": "https://cdn.pod.example/ep1.mp3", "mime": "audio/mpeg"},
+                            {"type": "image", "url": "javascript:alert(1)"}]})
+    p.item("Clip of the day", url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    it = p.item("Article with art", url="https://news.example/art")
+    it.image = "https://cdn.example.com/hero.jpg"
+    p.item("[**b11801**](https://github.com/ggml-org/llama.cpp/releases/tag/b11801)", url="https://github.com/ggml-org/llama.cpp/releases/tag/b11801", kind="release",
+           summary="model: Add support for SenseNova U1 model ( #28919 )")
+    db.commit()
+    subscribe_all(db, "media")
+    db.close()
+    client.post("/api/me/issues/build", json={"key": "k"})
+    html = client.get("/issue/k").text
+    assert '<audio controls preload="none" src="https://cdn.pod.example/ep1.mp3">' in html
+    assert 'href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"' in html and "i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" in html
+    assert "<iframe" not in html and "javascript:" not in html
+    assert 'src="https://cdn.example.com/hero.jpg"' in html and 'referrerpolicy="no-referrer"' in html
+    assert "llama.cpp b11801: model: Add support for SenseNova U1 model" in html and "[**" not in html
+
+
 def test_theme_and_push_validation(client):
     register(client, "dave")
     assert client.put("/api/me/theme", json={"palette": "neon"}).status_code == 400
