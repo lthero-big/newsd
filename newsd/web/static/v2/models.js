@@ -66,5 +66,25 @@
   if(!editing)b.enabled=$('#fOn').getAttribute('aria-checked')==='true';
   const [ok,j]=editing?await api('PATCH','/api/me/llm/providers/'+editing.id,b):await api('POST','/api/me/llm/providers',b);
   if(!ok)return fail(j,'保存失败');$('#add').classList.remove('open');ND.toast('已保存 '+(j.name||name));reload()};
+ // fetch the provider's model list with the form's URL / key (or the saved key when editing)
+ $('#fetchModels').onclick=async()=>{const h=$('#modelHint'),b=$('#fetchModels');if(!picked){ND.toast('请先选择预设');return}
+  const body={preset:picked,base_url:baseOf()};const k=$('#fKey').value.trim();if(k)body.api_key=k;if(editing)body.provider_id=editing.id;
+  b.disabled=true;h.innerHTML='<span class="spin"></span>正在向供应商查询模型…';
+  const [ok,j]=await api('POST','/api/me/llm/providers/models',body);b.disabled=false;
+  if(!ok||!j.ok){h.textContent='✕ 获取失败：'+(msg(j)||'未知错误')+'（可直接手填模型名）';return}
+  if(!j.models.length){h.textContent='供应商没有返回模型，请手填模型名。';return}
+  const cur=$('#fModel').value.trim();
+  $('#fModelSel').innerHTML=`<option value="">— 供应商模型（${j.total} 个）—</option>`+j.models.map(m=>`<option${m===cur?' selected':''}>${esc(m)}</option>`).join('');
+  h.textContent='✓ 已从供应商获取 '+j.total+' 个模型'+(j.total>j.models.length?'（显示前 '+j.models.length+' 个）':'')+'，在下拉里选择即可。'};
+ // recent usage
+ const tk=n=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+'M':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'k':String(n)};
+ const TRIG={manual:'手动',scheduled:'定时',api:'接口'};
+ const when=s=>{const d=new Date(s);return isNaN(d)?'':d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})};
+ async function usage(){const [ok,j]=await api('GET','/api/me/llm/usage?limit=20');const tb=$('#usageRows');if(!ok){tb.innerHTML='<tr><td colspan="9" class="muted">加载失败</td></tr>';return}
+  $('#usageTotal').textContent=j.runs.length?`近 ${j.runs.length} 期 · ${tk(j.total.input_tokens)} 入 / ${tk(j.total.output_tokens)} 出`:'';
+  tb.innerHTML=j.runs.map(r=>`<tr><td>${esc(when(r.at))}</td><td class="mono">${esc(r.key||'')}</td><td>${esc(TRIG[r.trigger]||r.trigger||'')}</td><td class="mono" title="${esc(r.chain||'')}">${esc(r.model||'')}</td>
+   <td style="text-align:right">${r.requests||0}</td><td style="text-align:right"><b>${tk(r.input_tokens)}</b></td><td style="text-align:right"><b>${tk(r.output_tokens)}</b></td><td style="text-align:right">${r.seconds!=null?r.seconds+'s':''}</td>
+   <td>${r.status==='ok'?'✓ '+(r.items_out??'')+' 条':'<span title="'+esc(r.error||'')+'">✕ 失败</span>'}</td></tr>`).join('')||'<tr><td colspan="9" class="muted">还没有用量记录：配置好模型后生成一次日报就会出现在这里。</td></tr>'}
+ $('#usageReload').onclick=usage;usage();
  render();
 })();

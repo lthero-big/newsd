@@ -96,10 +96,61 @@ def _card(c: Candidate) -> dict:
             "section": (c.llm or {}).get("section")}
 
 
+USAGE_FIELDS = ("requests", "retries", "repairs", "invalid_json", "failovers", "input_tokens", "output_tokens")
+STAGES = {"queued": "排队中", "collect": "整理候选", "score": "模型打分", "dedupe": "语义去重", "select": "筛选排版",
+          "rerank": "AI 重排", "translate": "翻译", "save": "保存", "done": "已完成", "failed": "失败"}
+
+
+def _usage_snapshot(client) -> dict:
+    u = client.usage
+    return {f: int(getattr(u, f, 0) or 0) for f in USAGE_FIELDS}
+
+
+def usage_delta(client, before: dict | None) -> dict:
+    """Usage of ``client`` since ``before`` (a shared client may already have served other users)."""
+    now_ = _usage_snapshot(client)
+    before = before or {}
+    out = {f: now_[f] - before.get(f, 0) for f in USAGE_FIELDS}
+    out["errors"] = dict(client.usage.errors)
+    out["chain"] = getattr(client, "labels", [client.label])
+    return out
+
+
+def _log_usage(db, user_id: int, key: str, trigger: str, client, usage: dict, seconds: float, items_out: int | None,
+               status: str = "ok", error: str | None = None) -> None:
+    """One 模型用量 log row per build that used a model (the 模型 page lists the latest ones)."""
+    from . import eventlog
+    user = db.get(User, user_id)
+    tin, tout = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
+    eventlog.add(db, "INFO" if status == "ok" else "WARN", "llm",
+                 f"模型用量 · 日报 {key} · {fmt_tokens(tin)} 入 / {fmt_tokens(tout)} 出 · {usage.get('requests', 0)} 次请求",
+                 source="usage", user=user,
+                 detail={"key": key, "trigger": trigger, "status": status, "model": client.label,
+                         "chain": ", ".join(usage.get("chain") or []), "requests": usage.get("requests", 0),
+                         "input_tokens": tin, "output_tokens": tout, "retries": usage.get("retries", 0),
+                         "failovers": usage.get("failovers", 0), "seconds": round(seconds, 1), "items_out": items_out,
+                         "error": (error or "")[:300] or None})
+
+
+def fmt_tokens(n: int) -> str:
+    n = int(n or 0)
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M".replace(".0M", "M")
+    if n >= 1000:
+        return f"{n / 1000:.1f}k".replace(".0k", "k")
+    return str(n)
+
+
 async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMClient | None | str = "auto",
                       since: datetime | None = None, since_hours: float = 26, now: datetime | None = None,
-                      ai_dedupe_on: bool = True, ai_rerank_on: bool = True, translate: bool = True) -> dict:
-    now = now or _now()
+                      ai_dedupe_on: bool = True, ai_rerank_on: bool = True, translate: bool = True,
+                      trigger: str = "api", progress=None) -> dict:
+    """``progress(stage, client)`` is called as the build moves through STAGES (for the live status line)."""
+    def step(stage):
+        if progress is not None:
+            progress(stage, client)
+    t_start = _now()
+    now = now or t_start
     key = key or default_key(now)
     since = since or now - timedelta(hours=since_hours)
     own = False
@@ -108,7 +159,9 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
         own = client is not None
     report = {"user_id": user_id, "key": key, "ai": "on" if client else "skipped: no model key",
               "model": client.label if client else None, "scored": 0, "reused": 0, "empty": 0, "errors": 0}
+    before = _usage_snapshot(client) if client is not None else None
     try:
+        step("collect")
         cands, pool = candidates(db, user_id, since)
         rules = load_rules(db, user_id)
         caps = load_caps(db, user_id)
@@ -116,9 +169,11 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
         kept, d = dedupe(kept)
         dropped += d
         if client is not None:
+            step("score")
             kept, d = await _model_layer(db, client, user_id, kept, pool, report)
             dropped += d
             if ai_dedupe_on and not report.get("stopped") and len(kept) > 1:
+                step("dedupe")
                 cards = await ai_dedupe(client, [_card(c) for c in kept], report)
                 keep_ids = {x["id"] for x in cards}
                 by_id = {c.item_id: c for c in kept}
@@ -129,29 +184,41 @@ async def build_issue(db, user_id: int, key: str | None = None, *, client: LLMCl
                         by_id[dup].reason = f"duplicate-of:{x['id']}:semantic"
                 dropped += [c for c in kept if c.item_id not in keep_ids]
                 kept = [c for c in kept if c.item_id in keep_ids]
+        step("select")
         apply_zones(db, user_id, kept)
         adjust_candidates(db, user_id, kept)
         selected, d = cut(kept, caps)
         dropped += d
         if client is not None and ai_rerank_on and not report.get("stopped") and len(selected) > 1:
+            step("rerank")
             cards = await ai_rerank(client, [_card(c) for c in selected], report)
             by_id = {c.item_id: c for c in selected}
             selected = [by_id[x["id"]] for x in cards]
         tr = {}
         if translate:
+            step("translate")
             lang = llm_keys.translate_to(db, user_id)
             texts = [c.title for c in selected] + [c.summary[:400] for c in selected if c.summary]
             tr, stats = await translate_texts(db, None if client is None or report.get("stopped") else client, texts, lang)
             report["translation"] = {"lang": lang, **stats}
+        step("save")
+        if client is not None:
+            report["usage"] = usage_delta(client, before)
+            _log_usage(db, user_id, key, trigger, client, report["usage"], (_now() - t_start).total_seconds(), len(selected))
         issue = _store(db, user_id, key, selected, dropped, tr, report, caps, since, now, len(cands))
         report.update(issue_id=issue.id, items_in=len(cands), items_out=len(selected), stopped=bool(report.get("stopped")),
                       dropped=_reason_counts(dropped))
-        if client is not None:
-            u = client.usage
-            report["usage"] = {"requests": u.requests, "retries": u.retries, "repairs": u.repairs,
-                               "invalid_json": u.invalid_json, "errors": dict(u.errors),
-                               "failovers": getattr(u, "failovers", 0), "chain": getattr(client, "labels", [client.label])}
         return report
+    except Exception as exc:
+        if client is not None:
+            try:
+                db.rollback()
+                _log_usage(db, user_id, key, trigger, client, usage_delta(client, before),
+                           (_now() - t_start).total_seconds(), None, status="failed", error=f"{type(exc).__name__}: {exc}")
+                db.commit()
+            except Exception:  # noqa: BLE001  (the usage log must never hide the real error)
+                db.rollback()
+        raise
     finally:
         if own:
             await client.aclose()
@@ -311,12 +378,78 @@ class BuildIn(BaseModel):
     key: str | None = Field(default=None, max_length=64, pattern=r"^[\w:.\-]+$")
     since_hours: float = Field(default=26, gt=0, le=24 * 14)
     ai: bool = True
+    background: bool = False  # start it and return at once; poll GET /api/me/issues/build/status
+
+
+# Live state of the latest manual build per user (this web process only; the scheduler logs to 日志与任务).
+_builds: dict[int, dict] = {}
+_tasks: set = set()
+
+
+def _iso(dt: datetime | None) -> str | None:
+    return dt.replace(tzinfo=timezone.utc).isoformat() if dt else None
+
+
+def build_status(user_id: int) -> dict:
+    j = _builds.get(user_id)
+    if not j:
+        return {"state": "idle"}
+    out = {k: v for k, v in j.items() if not k.startswith("_")}
+    cl = j.get("_client")
+    if cl is not None and j["state"] == "running":
+        out["usage"] = {k: v for k, v in usage_delta(cl, j.get("_before")).items() if k in USAGE_FIELDS}
+    end = j.get("_finished") or _now()
+    out["elapsed"] = round((end - j["_started"]).total_seconds(), 1)
+    out["stage_label"] = STAGES.get(out.get("stage"), out.get("stage"))
+    return out
+
+
+async def _run_build(user_id: int, body: BuildIn) -> None:
+    from .db import SessionLocal
+    j = _builds[user_id]
+
+    def progress(stage, client):
+        j["stage"] = stage
+        if client is not None and j.get("_client") is not client:
+            j["_client"], j["_before"] = client, _usage_snapshot(client)
+            j["model"] = client.label
+    db = SessionLocal()
+    try:
+        rep = await build_issue(db, user_id, body.key, client="auto" if body.ai else None, since_hours=body.since_hours,
+                                trigger="manual", progress=progress)
+        j.update(state="done", stage="done", key=rep["key"], items_in=rep.get("items_in"), items_out=rep.get("items_out"),
+                 ai=rep.get("ai"), usage={k: v for k, v in (rep.get("usage") or {}).items() if k in USAGE_FIELDS} or None)
+    except Exception as exc:  # noqa: BLE001
+        if j.get("_client") is not None:
+            j["usage"] = {k: v for k, v in usage_delta(j["_client"], j.get("_before")).items() if k in USAGE_FIELDS}
+        j.update(state="failed", stage="failed", error=f"{type(exc).__name__}: {exc}"[:300])
+    finally:
+        j["_finished"] = _now()
+        j["finished_at"] = _iso(j["_finished"])
+        j.pop("_client", None)
+        db.close()
+
+
+@router.get("/me/issues/build/status")
+def build_my_issue_status(user=Depends(require_user)):
+    return build_status(user.id)
 
 
 @router.post("/me/issues/build")
 async def build_my_issue(body: BuildIn | None = None, user=Depends(require_user), db=Depends(get_db)):
     body = body or BuildIn()
-    rep = await build_issue(db, user.id, body.key, client="auto" if body.ai else None, since_hours=body.since_hours)
+    if body.background:
+        cur = _builds.get(user.id)
+        if cur and cur["state"] == "running":
+            return {"started": False, **build_status(user.id)}
+        started = _now()
+        _builds[user.id] = {"state": "running", "stage": "queued", "_started": started, "started_at": _iso(started)}
+        task = asyncio.create_task(_run_build(user.id, body))
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
+        return {"started": True, **build_status(user.id)}
+    rep = await build_issue(db, user.id, body.key, client="auto" if body.ai else None, since_hours=body.since_hours,
+                            trigger="manual")
     return {k: v for k, v in rep.items() if k != "usage"} | {"usage": rep.get("usage")}
 
 

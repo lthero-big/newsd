@@ -6,8 +6,20 @@
   onAll:()=>ND.go('/calendar'),onSelect:s=>{if(!s||s===I.key)return;setTimeout(()=>ND.go('/issue/'+s,s>I.key?'next':'prev'),ND.RM()?0:420)}});
  document.addEventListener('click',e=>{const a=e.target.closest('[data-scroll]');if(!a)return;const t=document.getElementById(a.dataset.scroll);if(t){e.preventDefault();t.scrollIntoView({behavior:ND.RM()?'auto':'smooth'})}});
  const feed=$('#feed');
- $('#build')&&$('#build').addEventListener('click',async()=>{const b=$('#build');b.disabled=true;$('#build-status').textContent='生成中…';
-  const [ok,j]=await api('POST','/api/me/issues/build',{});if(ok)location.href='/';else{b.disabled=false;$('#build-status').textContent='生成失败：'+(j.error||'')}});
+ // 重新生成: runs in the background on the server; poll its stage, elapsed time and model tokens until it finishes
+ const tk=n=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1).replace(/\.0$/,'')+'M':n>=1e3?(n/1e3).toFixed(1).replace(/\.0$/,'')+'k':String(n)};
+ const line=j=>{const u=j.usage||{};let t=(j.stage_label||'')+' · '+Math.round(j.elapsed||0)+'s';if(u.requests)t+=` · ${u.requests} 次请求 · ${tk(u.input_tokens)} 入 / ${tk(u.output_tokens)} 出`;return t};
+ let polling=false;
+ async function poll(){if(polling)return;polling=true;const b=$('#build'),st=$('#build-status');if(b)b.disabled=true;
+  for(;;){const [ok,j]=await api('GET','/api/me/issues/build/status');if(!ok){st.textContent='无法获取生成进度';break}
+   if(j.state==='running'){st.innerHTML='<span class="spin"></span>正在生成 · '+ND.esc(line(j));await new Promise(r=>setTimeout(r,1500));continue}
+   if(j.state==='done'){st.textContent='✓ 已生成 '+(j.key||'')+' · '+(j.items_out??0)+' 条 · '+line(j)+' · 正在刷新…';setTimeout(()=>location.href='/',1200);break}
+   if(j.state==='failed'){st.textContent='✕ 生成失败：'+(j.error||'')+(j.usage&&j.usage.requests?' · '+line(j):'');if(b)b.disabled=false;break}
+   if(b)b.disabled=false;break}
+  polling=false}
+ $('#build')&&$('#build').addEventListener('click',async()=>{const b=$('#build');b.disabled=true;$('#build-status').innerHTML='<span class="spin"></span>正在提交…';
+  const [ok,j]=await api('POST','/api/me/issues/build',{background:true});if(!ok){b.disabled=false;$('#build-status').textContent='生成失败：'+(j.error||'');return}poll()});
+ if($('#build'))api('GET','/api/me/issues/build/status').then(([ok,j])=>{if(ok&&j.state==='running')poll()});
  if(!feed)return;
  let tag='';const col=new Set(JSON.parse(ND.ls.get('nd-col','[]')||'[]'));
  $$('.item',feed).forEach((c,i)=>c.dataset.ord=i);

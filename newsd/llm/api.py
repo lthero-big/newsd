@@ -169,6 +169,40 @@ async def test_unsaved(body: ProviderTestIn, user=Depends(require_user), db=Depe
     return await _run_test(cfg)
 
 
+class ModelsIn(BaseModel):
+    preset: str = Field(max_length=32)
+    api_key: str | None = Field(default=None, max_length=512)
+    base_url: str | None = Field(default=None, max_length=512)
+    provider_id: int | None = None  # editing a saved provider: reuse its key if none is posted
+
+
+@router.post("/me/llm/providers/models")
+async def fetch_models(body: ModelsIn, user=Depends(require_user), db=Depends(get_db)):
+    """Ask the provider which models this key can use (its model-list endpoint); nothing is saved."""
+    _rate(user.id)
+    key = (body.api_key or "").strip()
+    base_in = body.base_url
+    if body.provider_id is not None:
+        try:
+            row = llm_keys._get(db, user.id, body.provider_id)
+        except LookupError:
+            raise HTTPException(404, "no such provider")
+        if row.preset == body.preset:  # a stored key is never sent to a different provider
+            if not key:
+                key, _ = llm_keys._key(row)
+            if base_in is None:
+                base_in = row.base_url
+    admin = user.role == "admin"
+    try:
+        base = llm_keys._clean_base(body.preset, base_in, admin)
+        cfg = llm_keys.build_config(body.preset, "list-models", key, base, admin=admin)
+        async with LLMClient(cfg, retries=0, timeout=TEST_TIMEOUT, rpm=0, transport=llm_keys.TRANSPORT) as client:
+            models = await client.list_models()
+    except LLMError as exc:
+        return _fail(exc, provider=body.preset)
+    return {"ok": True, "provider": body.preset, "models": models[:500], "total": len(models)}
+
+
 @router.post("/me/llm/providers/{pid}/test")
 async def test_saved(pid: int, user=Depends(require_user), db=Depends(get_db)):
     """Test a saved provider and remember the result (shown on its card)."""
@@ -264,3 +298,23 @@ def put_profiles(body: list[PickIn], user=Depends(require_user), db=Depends(get_
     except ValueError as exc:
         db.rollback()
         raise HTTPException(400, str(exc))
+
+
+@router.get("/me/llm/usage")
+def my_usage(limit: int = 20, user=Depends(require_user), db=Depends(get_db)):
+    """The latest 模型用量 rows (one per issue build that used a model) plus totals over them."""
+    from datetime import timezone
+
+    from sqlalchemy import select
+
+    from newsd.models import LogEvent
+    limit = max(1, min(limit, 100))
+    rows = db.scalars(select(LogEvent).where(LogEvent.user_id == user.id, LogEvent.module == "llm",
+                                             LogEvent.source_key == "usage").order_by(LogEvent.at.desc(), LogEvent.id.desc())
+                      .limit(limit)).all()
+    runs = [{"at": r.at.replace(tzinfo=timezone.utc).isoformat(), **{k: (r.detail or {}).get(k) for k in (
+        "key", "trigger", "status", "model", "chain", "requests", "input_tokens", "output_tokens", "retries", "failovers",
+        "seconds", "items_out", "error")}} for r in rows]
+    return {"runs": runs, "total": {"input_tokens": sum(r["input_tokens"] or 0 for r in runs),
+                                    "output_tokens": sum(r["output_tokens"] or 0 for r in runs),
+                                    "requests": sum(r["requests"] or 0 for r in runs)}}

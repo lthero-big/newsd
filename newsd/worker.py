@@ -172,7 +172,7 @@ async def run_pipeline(db, *, trigger: str = "manual", cycle: str | None = None,
         for u in users:
             t0 = _now()
             try:
-                rep = await build_issue(db, u.id, key, client=client, since_hours=since_hours)
+                rep = await build_issue(db, u.id, key, client=client, since_hours=since_hours, trigger="scheduled")
                 row = {"user": u.username, "status": "ok", "ai": rep["ai"], "items_in": rep["items_in"], "items_out": rep["items_out"],
                        "dropped": rep.get("dropped", {}), "model_requests": (rep.get("usage") or {}).get("requests", 0)}
                 ok += 1

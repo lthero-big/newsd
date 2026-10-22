@@ -13,6 +13,10 @@
 <div class="prov-list" id="list" aria-live="polite"></div>
 <div class="callout" style="margin-top:18px"><span>ⓘ</span><span>API Key 用服务器主密钥加密保存，页面里只显示后 4 位；编辑时留空表示不修改。自定义 Base URL 只能是 http / https，普通用户不能填内网地址。</span></div>
 
+<div class="row sp" style="margin:26px 0 12px" id="usage"><h2 class="sec" style="margin:0;flex:1">最近用量 <span id="usageTotal" class="tag plain"></span></h2><button class="btn sm" id="usageReload" type="button">刷新</button></div>
+<section class="card flush scroll-x"><table class="t" id="usageTbl"><thead><tr><th>完成时间</th><th>日报</th><th>触发</th><th>模型</th><th style="text-align:right">请求</th><th style="text-align:right">输入</th><th style="text-align:right">输出</th><th style="text-align:right">耗时</th><th>结果</th></tr></thead><tbody id="usageRows"><tr><td colspan="9" class="muted">加载中…</td></tr></tbody></table></section>
+<p class="muted" style="font-size:12px;margin:8px 2px 0">每次生成日报（手动或定时）记一行；token 数按供应商返回的 usage 统计，供应商不返回时记 0。</p>
+
 <h2 class="sec" id="profiles">AI 内容类别</h2><section class="card">
 <p class="muted" style="font-size:13px;margin:0 0 12px">勾选要看的类别。模型打分（0–10）达到阈值的条目才会进日报；阈值可以调。没有可用模型时这里不生效。</p>
 <div class="prof-list" id="profs">{% for p in profiles %}<div class="row sp wrap-r prof"><label class="row" style="gap:10px"><button class="switch" type="button" role="switch" aria-checked="{{ 'true' if p.name in picked else 'false' }}" data-p="{{ p.name }}" aria-label="启用类别 {{ p.title }}"></button><span><b>{{ p.title }}</b><small class="muted" style="display:block;font-size:12px">栏目：{{ p.sections|join('、') }} · 默认阈值 {{ p.threshold }}</small></span></label>
@@ -27,7 +31,7 @@
   <div class="lbl muted" style="font-size:13px;margin-bottom:10px">2 · 连接信息</div>
   <div class="field"><label for="fName">显示名称</label><input class="input" id="fName" maxlength="64" placeholder="例如：DeepSeek 主力"></div>
   <div class="field"><label for="fUrl">Base URL</label><input class="input mono" id="fUrl" maxlength="512" placeholder="https://…/v1" autocomplete="off"><span class="hint">选预设后自动填入，可改成自建网关 / 代理地址。</span></div>
-  <div class="field"><label for="fModel">模型</label><div class="input-row"><select class="input" id="fModelSel" aria-label="常用模型"></select><input class="input mono" id="fModel" maxlength="128" placeholder="或手填模型名"></div><span class="hint">下拉选常用模型，也可直接手填任意模型 ID（手填优先）。</span></div>
+  <div class="field"><label for="fModel">模型</label><div class="input-row"><select class="input" id="fModelSel" aria-label="常用模型"></select><input class="input mono" id="fModel" maxlength="128" placeholder="或手填模型名"><button class="btn" type="button" id="fetchModels" title="用当前 Base URL 和 Key 向供应商查询可用模型">从供应商获取</button></div><span class="hint" id="modelHint">下拉选常用模型，也可点「从供应商获取」拉取这个 Key 能用的全部模型，或直接手填任意模型 ID（手填优先）。</span></div>
   <div class="field"><label for="fKey">API Key</label><div class="input-row"><input class="input mono" id="fKey" type="password" placeholder="sk-…" autocomplete="off"><button class="btn" type="button" id="eye">显示</button></div><span class="hint" id="keyHint">保存后仅显示 ••••末四位。</span></div>
   <div class="row sp" id="onRow"><div><b style="font-size:14px">创建后启用</b><div class="muted" style="font-size:12px">启用后加入故障切换链，排在末位</div></div><button class="switch" type="button" role="switch" aria-checked="true" id="fOn" aria-label="创建后启用"></button></div>
   <div class="testbox" id="test"></div>

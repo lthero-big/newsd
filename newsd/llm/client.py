@@ -152,6 +152,76 @@ def parse_response(provider: str, data: dict) -> str:
     raise LLMError("config", f"unknown provider {provider!r}")
 
 
+def parse_tokens(provider: str, data: dict) -> tuple[int, int]:
+    """(input, output) tokens reported by the provider for one response; (0, 0) when it reports none."""
+    wire = WIRE.get(provider, provider)
+    try:
+        if wire == "openai":
+            u = data.get("usage") or {}
+            return int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0)
+        if wire == "anthropic":
+            u = data.get("usage") or {}
+            return (int(u.get("input_tokens") or 0) + int(u.get("cache_read_input_tokens") or 0)
+                    + int(u.get("cache_creation_input_tokens") or 0), int(u.get("output_tokens") or 0))
+        if wire == "gemini":
+            u = data.get("usageMetadata") or {}
+            return int(u.get("promptTokenCount") or 0), int(u.get("candidatesTokenCount") or 0) + int(u.get("thoughtsTokenCount") or 0)
+        if wire == "ollama":
+            return int(data.get("prompt_eval_count") or 0), int(data.get("eval_count") or 0)
+    except (AttributeError, TypeError, ValueError):
+        pass
+    return 0, 0
+
+
+def models_request(cfg: "ModelConfig") -> tuple[str, dict]:
+    """(url, headers) of the provider's model-list endpoint."""
+    base, wire = cfg.effective_base(), cfg.wire
+    if wire == "openai":
+        return f"{base}/models", ({"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {})
+    if wire == "anthropic":
+        root = base if base.endswith("/v1") else base + "/v1"
+        return f"{root}/models?limit=1000", {"x-api-key": cfg.api_key, "anthropic-version": ANTHROPIC_VERSION}
+    if wire == "gemini":
+        root = base[:-len("/openai")] if base.endswith("/openai") else base
+        if not re.search(r"/v1(beta)?$", root):
+            root += "/v1beta"
+        return f"{root}/models?pageSize=1000", {"x-goog-api-key": cfg.api_key}
+    if wire == "ollama":
+        root = base[:-len("/v1")] if base.endswith("/v1") else base
+        return f"{root}/api/tags", ({"Authorization": f"Bearer {cfg.api_key}"} if cfg.api_key else {})
+    raise LLMError("config", f"unknown provider {cfg.provider!r}")
+
+
+def parse_models(provider: str, data) -> list[str]:
+    """Model ids from a model-list response (chat-capable ones only where the provider says so), sorted, unique."""
+    wire = WIRE.get(provider, provider)
+    out: list[str] = []
+    rows = []
+    if isinstance(data, dict):
+        rows = data.get("data") if wire in ("openai", "anthropic") else data.get("models") if wire in ("gemini", "ollama") else None
+        if rows is None:
+            rows = data.get("data") or data.get("models") or []
+    elif isinstance(data, list):
+        rows = data
+    for r in rows or []:
+        if isinstance(r, str):
+            mid = r
+        elif isinstance(r, dict):
+            if wire == "gemini":
+                methods = r.get("supportedGenerationMethods")
+                if methods and "generateContent" not in methods:
+                    continue
+                mid = str(r.get("name") or "").removeprefix("models/")
+            else:
+                mid = r.get("id") or r.get("name") or r.get("model") or ""
+        else:
+            continue
+        mid = str(mid).strip()
+        if mid and len(mid) <= 128 and mid not in out:
+            out.append(mid)
+    return sorted(out, key=str.lower)
+
+
 def _error_detail(resp: httpx.Response) -> str:
     try:
         data = resp.json()
@@ -204,6 +274,13 @@ class Usage:
     invalid_json: int = 0
     errors: dict = field(default_factory=dict)
     failovers: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    def public(self) -> dict:
+        return {"requests": self.requests, "retries": self.retries, "repairs": self.repairs,
+                "invalid_json": self.invalid_json, "errors": dict(self.errors), "failovers": self.failovers,
+                "input_tokens": self.input_tokens, "output_tokens": self.output_tokens}
 
 
 class RateLimiter:
@@ -327,7 +404,28 @@ class LLMClient:
         url, headers, body = build_request(self.cfg, system, user, json_mode=json_mode, max_tokens=max_tokens,
                                            temperature=temperature)
         data = await self._post(url, headers, body)
+        tin, tout = parse_tokens(self.cfg.provider, data)
+        self.usage.input_tokens += tin
+        self.usage.output_tokens += tout
         return parse_response(self.cfg.provider, data)
+
+    async def list_models(self) -> list[str]:
+        """The provider's model ids (one GET, no retries)."""
+        url, headers = models_request(self.cfg)
+        await self._guard(url)
+        try:
+            resp = await self.client.get(url, headers=headers)
+        except httpx.TimeoutException as exc:
+            raise LLMError("network", "timeout") from exc
+        except httpx.TransportError as exc:
+            raise LLMError("network", f"connection error ({type(exc).__name__})") from exc
+        if resp.status_code >= 300:
+            kind = "auth" if resp.status_code in (401, 403) else "rate_limit" if resp.status_code == 429 else "http"
+            raise LLMError(kind, f"HTTP {resp.status_code}: {_error_detail(resp)}", resp.status_code)
+        try:
+            return parse_models(self.cfg.provider, resp.json())
+        except ValueError as exc:
+            raise LLMError("bad_response", "provider returned a non-JSON body") from exc
 
     async def complete_json(self, system: str, user: str, *, max_tokens: int = 2048, temperature: float = 0.0):
         """Return parsed JSON, repairing invalid output once; None if it is still invalid.
@@ -405,6 +503,8 @@ class FailoverClient:
             u.retries += c.usage.retries
             u.repairs += c.usage.repairs
             u.invalid_json += c.usage.invalid_json
+            u.input_tokens += c.usage.input_tokens
+            u.output_tokens += c.usage.output_tokens
             for k, v in c.usage.errors.items():
                 u.errors[k] = u.errors.get(k, 0) + v
         return u
