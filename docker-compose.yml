@@ -1,12 +1,23 @@
-# newsd: web + worker share one image and one database.
-#   docker compose up -d                          # SQLite in the newsd-data volume (default)
-#   COMPOSE_PROFILES=postgres docker compose up -d  # bundled Postgres (set NEWSD_DATABASE_URL, see .env.example)
-#   docker compose --profile updater up -d        # + web "update" button (docs/updates.md)
-# Image: NEWSD_IMAGE:NEWSD_VERSION (default lthero1/newsd:latest); `up -d --build` builds this checkout.
+# newsd: web + worker share one image (Docker Hub lthero1/newsd, amd64/arm64) and one database.
+# This file ships in the repo root and inside the image, so there is nothing to download:
+#   in a checkout:   docker compose pull && docker compose up -d          (prebuilt image, no build)
+#   no checkout:     docker run --rm lthero1/newsd cat /app/docker-compose.yml > docker-compose.yml
+#   from source:     docker compose up -d --build                         (builds this checkout)
+# Then: echo "NEWSD_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n=+/')" > .env   # keep this key, never change it
+#       docker compose exec web newsd create-admin admin
+# Options go in .env next to this file (full list: .env.example / https://github.com/lthero-big/newsd/blob/main/.env.example):
+#   NEWSD_PORT=127.0.0.1:8080       behind a reverse proxy (default 8080 on all interfaces)
+#   NEWSD_VERSION=0.1.0             pin a release (default latest)
+#   COMPOSE_PROFILES=postgres       bundled Postgres; also set NEWSD_PG_PASSWORD and
+#                                   NEWSD_DATABASE_URL=postgresql+psycopg://newsd:<same password>@db:5432/newsd
+#   COMPOSE_PROFILES=updater        web "update" button, docs/updates.md (postgres,updater for both)
 x-newsd: &newsd
   image: ${NEWSD_IMAGE:-lthero1/newsd}:${NEWSD_VERSION:-latest}
-  env_file: .env
+  env_file:
+    - path: .env
+      required: false
   environment:
+    NEWSD_SECRET_KEY: ${NEWSD_SECRET_KEY:?set NEWSD_SECRET_KEY in .env (see the top of this file)}
     NEWSD_DATABASE_URL: ${NEWSD_DATABASE_URL:-sqlite:////data/newsd.db}
   volumes:
     - newsd-data:/data
@@ -19,30 +30,29 @@ x-newsd: &newsd
 services:
   web:
     <<: *newsd
-    build: .
+    build: .  # only used by `docker compose up -d --build` in a checkout
     ports:
-      - "${NEWSD_PORT:-8080}:8080"  # behind a reverse proxy: NEWSD_PORT=127.0.0.1:8080
+      - "${NEWSD_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 15s
-  # scheduler: collects the shared pool once, then builds every user's issue at NEWSD_WORKER_TIMES (NEWSD_WORKER_TZ)
+  # scheduler: collects the shared pool, then builds every user's issue at NEWSD_WORKER_TIMES (NEWSD_WORKER_TZ)
   worker:
     <<: *newsd
     command: ["newsd", "worker", "start"]
     depends_on:
       web:
         condition: service_healthy  # web runs the DB migrations first
-  # optional: bundled Postgres. Data in the newsd-pg volume; not published on any port.
   db:
     image: postgres:16-alpine
     profiles: ["postgres"]
     environment:
       POSTGRES_DB: newsd
       POSTGRES_USER: newsd
-      POSTGRES_PASSWORD: ${NEWSD_PG_PASSWORD:-}  # required: set it in .env (postgres refuses to start without one)
+      POSTGRES_PASSWORD: ${NEWSD_PG_PASSWORD:-}
     volumes:
       - newsd-pg:/var/lib/postgresql/data
     healthcheck:
@@ -51,13 +61,13 @@ services:
       timeout: 5s
       retries: 12
     restart: unless-stopped
-  # optional: web-triggered updates. The only container with the Docker socket; it pulls NEWSD_IMAGE:<release> and
-  # recreates web and worker of this project. Not published on any port.
   updater:
     image: ${NEWSD_IMAGE:-lthero1/newsd}:${NEWSD_VERSION:-latest}
     profiles: ["updater"]
     command: ["newsd", "updater"]
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       NEWSD_IMAGE: ${NEWSD_IMAGE:-lthero1/newsd}
     user: "0:0"  # to use /var/run/docker.sock

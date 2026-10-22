@@ -37,6 +37,8 @@ RUN groupadd --system --gid 10001 newsd \
  && mkdir -p /app /data && chown newsd:newsd /data
 COPY --from=build /opt/venv /opt/venv
 COPY config /app/config
+# the deploy compose file, so a server needs no checkout: docker run --rm lthero1/newsd cat /app/docker-compose.yml > docker-compose.yml
+COPY docker-compose.yml /app/docker-compose.yml
 COPY docker/entrypoint.sh /usr/local/bin/newsd-entrypoint
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \

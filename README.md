@@ -86,42 +86,43 @@ python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 
 > `NEWSD_SECRET_KEY` 用来加密用户保存的模型 key 和推送密钥。**设定后不要更换、不要丢失**：换了以后已保存的密钥都解不开，用户需要重新填写。备份数据库时一定要连同它一起保存。
 
-### 方式一：Docker 一键部署（推荐）
+### 方式一：Docker Compose（推荐）
 
-只需要 Docker（含 Docker Compose 插件），不用拉代码，直接用 Docker Hub 上的预构建镜像 [`lthero1/newsd`](https://hub.docker.com/r/lthero1/newsd)（amd64 / arm64）：
+只需要 Docker（含 Compose 插件）。用 Docker Hub 上的预构建镜像 [`lthero1/newsd`](https://hub.docker.com/r/lthero1/newsd)（amd64 / arm64），不用自己构建。[`docker-compose.yml`](docker-compose.yml) 就在仓库根目录，镜像里也带了一份，不需要再单独下载。
+
+**A. 克隆仓库（推荐）**
 
 ```bash
-mkdir newsd && cd newsd
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/lthero-big/newsd/main/deploy/docker-compose.yml
+git clone https://github.com/lthero-big/newsd.git && cd newsd
 echo "NEWSD_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n=+/')" > .env   # 主密钥，保存好，不要更换
-docker compose up -d                              # 启动 web（端口 8080）和定时 worker
+docker compose pull && docker compose up -d       # 拉预构建镜像，启动 web（端口 8080）和定时 worker
 docker compose exec web newsd create-admin admin  # 创建管理员，按提示输入密码
 docker compose exec web newsd db import-config \
   --sources /app/config/collect-sources.json --tags /app/config/tags.json   # 导入默认信息源和标签
 ```
 
-升级：`docker compose pull && docker compose up -d`。其他选项（端口、固定版本、Postgres、网页端更新）写在同目录 `.env` 里，说明见 [deploy/docker-compose.yml](deploy/docker-compose.yml) 开头。
-
-### 方式一（源码版）：Docker Compose 从源码构建
-
-需要 Docker 和 Docker Compose。
+**B. 不克隆仓库**：从镜像里取出同一份 compose 文件，其余步骤和 A 一样（需要 0.1.1 及以后的镜像）：
 
 ```bash
-git clone https://github.com/lthero-big/newsd.git
-cd newsd
-cp .env.example .env        # 至少把 NEWSD_SECRET_KEY 改成上面生成的随机串
-docker compose up -d --build                     # 启动 web（端口 8080）和定时 worker
-docker compose exec web newsd create-admin admin # 创建管理员，按提示输入密码
-docker compose exec web newsd db import-config \
-  --sources /app/config/collect-sources.json --tags /app/config/tags.json   # 导入默认信息源和标签
+mkdir newsd && cd newsd
+docker run --rm lthero1/newsd cat /app/docker-compose.yml > docker-compose.yml
+echo "NEWSD_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n=+/')" > .env
+docker compose up -d
+docker compose exec web newsd create-admin admin
 ```
 
 浏览器打开 http://localhost:8080 ，用管理员账号登录。数据保存在名为 `newsd-data` 的 Docker 卷里。立刻跑一轮看效果：`docker compose exec worker newsd worker run-once`。
 
-- **镜像**：多阶段构建，以非 root 用户（uid 10001）运行。发布版本后可以直接用 Docker Hub `lthero1/newsd`（同时推送到 `ghcr.io/lthero-big/newsd`）的预构建镜像（amd64 / arm64）：`docker compose pull && docker compose up -d`，不用 `--build`。PyPI 慢时构建可加 `--build-arg PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple`。
-- **用 Postgres**：在 `.env` 里加 `COMPOSE_PROFILES=postgres`、`NEWSD_PG_PASSWORD=<随机密码>` 和 `NEWSD_DATABASE_URL=postgresql+psycopg://newsd:<同一个密码>@db:5432/newsd`，compose 会一起启动自带的 Postgres 16。
-- **网页端更新**：再加 `--profile updater`，见 [docs/updates.md](docs/updates.md)。
-- 端口、反向代理、systemd 等细节见 [部署指南](docs/deployment.md)。
+其他选项都写在同目录的 `.env` 里（完整列表见 [.env.example](.env.example)，常用的在 `docker-compose.yml` 开头）：
+
+- **端口 / 反向代理**：`NEWSD_PORT=127.0.0.1:8080` 只监听本机，交给 Nginx / Caddy 转发；在 HTTPS 后面再加 `NEWSD_COOKIE_SECURE=1`。
+- **固定版本**：`NEWSD_VERSION=0.1.0`（默认 `latest`）。
+- **用 Postgres**：加 `COMPOSE_PROFILES=postgres`、`NEWSD_PG_PASSWORD=<随机密码>` 和 `NEWSD_DATABASE_URL=postgresql+psycopg://newsd:<同一个密码>@db:5432/newsd`，compose 会一起启动自带的 Postgres 16。
+- **网页端更新**：`COMPOSE_PROFILES=updater`（两个都要就写 `postgres,updater`），见 [docs/updates.md](docs/updates.md)。
+- **从源码构建**：在克隆的目录里 `docker compose up -d --build`；PyPI 慢时先 `docker compose build --build-arg PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple`。
+- 镜像以非 root 用户（uid 10001）运行，同时发布到 `ghcr.io/lthero-big/newsd`。端口、反向代理、systemd 等细节见 [部署指南](docs/deployment.md)。
+
+> Docker 部署不要直接 `cp .env.example .env`：如果 `.env` 里写了 `NEWSD_DATABASE_URL=sqlite:///./var/...`，数据库会落到容器里不可写的目录。只写需要的变量即可。
 
 ### 方式二：本机直接运行
 
