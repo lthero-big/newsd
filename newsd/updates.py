@@ -188,7 +188,7 @@ def capability() -> tuple[bool, str]:
         except httpx.HTTPError:
             return False, "没有找到更新服务（updater 容器）。用 docker compose --profile updater up -d 启用，或手动 docker compose pull && docker compose up -d。"
     if not (ROOT / ".git").exists():
-        return False, "当前不是 git 检出的安装，无法自动更新；请按 README 的「升级」一节手动升级。"
+        return False, "当前不是 git 检出的安装，无法自动更新；请按 Wiki 的「升级」页（https://github.com/lthero-big/newsd/wiki/Upgrade）手动升级。"
     if not shutil.which("git"):
         return False, "没有找到 git 命令。"
     dirty = _git("status", "--porcelain", "--untracked-files=no", check=False)
