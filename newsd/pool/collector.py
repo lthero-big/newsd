@@ -38,7 +38,7 @@ RETRY_FAILED_AFTER = timedelta(hours=24)
 MAX_AGE_DAYS = 7  # feed entries older than this are not pooled (archive-style feeds list hundreds of old posts)
 MAX_EXTRACT_PER_SOURCE = 30  # newest first; only items inside the lookback window are extracted
 MAX_MEDIA_PROBE_PER_SOURCE = 10  # og:image look-ups per source per cycle for items whose feed carried no media
-NO_PROBE_HOSTS = ("github.com", "reddit.com", "redd.it", "news.ycombinator.com", "huggingface.co", "x.com", "twitter.com",
+NO_PROBE_HOSTS = ("github.com", "reddit.com", "redd.it", "news.ycombinator.com", "x.com", "twitter.com",
                   "youtube.com", "youtu.be")  # generic cards / bot walls / media already known
 PLUGIN_NAMES = {"hn": "hn", "github_search": "github", "hf_trending": "hf", "ossinsight": "ossinsight"}
 
@@ -226,7 +226,9 @@ async def _fetch_source(src: Source, fetcher: Fetcher, start: datetime, end: dat
 # ----------------------------------------------------------------------------------------------- media probe
 
 def _needs_probe(item: PoolItem, src: Source) -> bool:
-    """Lead image wanted: no image / media yet, never probed, not extracted (extraction already reads og:image)."""
+    """Lead image wanted: no image / media yet, never probed, not extracted (extraction already reads og:image).
+    Generic site cards (HF model social thumbnails, GitHub repo cards, og-default.png...) are rejected by
+    ``media._og_candidate_ok`` after the fetch."""
     extra = item.extra or {}
     if item.image or extra.get("media") or extra.get("og_probe") or src.content_extractor:
         return False

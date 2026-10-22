@@ -7,8 +7,8 @@
   i.redd.it / 直链音视频链接；条目链接本身是媒体时也算。只收 http(s)，头像 / 徽章 / 图标 / 小于 120px 的图丢弃。
 - 入池：`pool_items.extra.media`（列表）+ `pool_items.image`（首图 / 视频封面）。插件源（HN 等）链接是 YouTube / 媒体文件时同样记录。
 - og:image 探测：feed 没带图、源没开全文抽取的新条目，每源每轮最多 10 条，抓一次文章页读 `og:image` / `twitter:image`
-  （正则，不跑全文抽取），结果记在 `extra.og_probe`，同一条永不重抓。github.com / reddit / HN / HF / X / YouTube 不探测
-  （通用卡片或已有媒体）。`NEWSD_MEDIA_PROBE=0` 或 `run_cycle(extract=False)` 关闭。
+  （正则，不跑全文抽取），结果记在 `extra.og_probe`，同一条永不重抓。github.com / reddit / HN / X / YouTube 不探测
+  （通用卡片、反爬或已有媒体）；HF 模型页的通用社交缩略图在读取后被过滤，HF 博客的头图正常保留。`NEWSD_MEDIA_PROBE=0` 或 `run_cycle(extract=False)` 关闭。
 - 展示：卡片显示首图；音频 / 直链视频用 `<audio>` / `<video preload="none">`（点播放前不下载）；YouTube 与 Reddit 视频
   显示封面 + 外链，不嵌 iframe。图片带 `referrerpolicy="no-referrer"`、`loading="lazy"`，加载失败自动移除。
 
