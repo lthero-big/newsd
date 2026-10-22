@@ -183,9 +183,48 @@ def test_extractor_is_per_source_switch(db, net):
     net.routes["https://news.example/qwen"] = (200, "text/html", ARTICLE)
     (u,) = _users(db, 1)
     _sub(db, [u], _source(db, "rss:a", FEED, extractor=False))
-    r = cycle(db, net, "c1")
+    r = cycle(db, net, "c1", media_probe=False)
     assert net.calls == [FEED] and r["extracted"] == 0
     assert db.scalars(select(PoolItem)).one().extraction_id is None
+
+
+def test_media_probe_reads_og_image_once_without_extraction(db, net):
+    net.routes[FEED] = (200, "application/rss+xml", rss([("A", "https://news.example/qwen", "teaser"),
+                                                         ("R", "https://github.com/o/r/releases/tag/v1", "notes")]))
+    net.routes["https://news.example/qwen"] = (200, "text/html", ARTICLE)
+    (u,) = _users(db, 1)
+    _sub(db, [u], _source(db, "rss:a", FEED, extractor=False))
+    r = cycle(db, net, "c1")
+    by_url = {i.url: i for i in db.scalars(select(PoolItem))}
+    art = by_url["https://news.example/qwen"]
+    assert art.image == "https://cdn.example.com/img/qwen-launch-hero.jpg" and art.extraction_id is None
+    assert art.extra["og_probe"] == "ok" and r["media_probed"] == 1
+    assert net.calls == [FEED, "https://news.example/qwen"]  # github.com pages are generic cards: never probed
+    cycle(db, net, "c2")
+    assert net.calls.count("https://news.example/qwen") == 1  # one attempt per item, ever
+
+
+def test_feed_media_lands_on_the_item(db, net):
+    body = ('<?xml version="1.0"?><rss xmlns:media="http://search.yahoo.com/mrss/"><channel>'
+            '<item><title>Pod</title><link>https://pod.example/ep1</link><pubDate>{when}</pubDate><description>ep</description>'
+            '<enclosure url="https://cdn.pod.example/ep1.mp3" type="audio/mpeg" length="1"/>'
+            '<media:thumbnail url="https://cdn.pod.example/ep1.jpg" width="640" height="360"/></item>'
+            '<item><title>Clip</title><link>https://blog.example/clip</link><pubDate>{when}</pubDate>'
+            '<description>&lt;p&gt;watch &lt;a href="https://youtu.be/dQw4w9WgXcQ"&gt;here&lt;/a&gt;&lt;img src="javascript:x"&gt;&lt;/p&gt;</description>'
+            '<media:thumbnail url="https://avatars.githubusercontent.com/u/1?s=60" width="30" height="30"/></item>'
+            '</channel></rss>')
+    from datetime import datetime, timezone
+    from email.utils import format_datetime
+    net.routes[FEED] = (200, "application/rss+xml", body.replace("{when}", format_datetime(datetime.now(timezone.utc), usegmt=True)))
+    (u,) = _users(db, 1)
+    _sub(db, [u], _source(db, "rss:a", FEED))
+    cycle(db, net, "c1", media_probe=False)
+    by = {i.title: i for i in db.scalars(select(PoolItem))}
+    pod, clip = by["Pod"], by["Clip"]
+    assert pod.image == "https://cdn.pod.example/ep1.jpg"
+    assert {m["type"] for m in pod.extra["media"]} == {"audio", "image"}
+    assert [m["type"] for m in clip.extra["media"]] == ["youtube"]  # avatar + javascript: dropped
+    assert clip.image == "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"  # the video poster is the lead image
 
 
 def test_bad_source_does_not_fail_cycle_and_private_feed_refused(db, net):

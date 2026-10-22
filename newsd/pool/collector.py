@@ -25,6 +25,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from newsd import content
 from newsd.collector import collect as core
 from newsd.models import Extraction, PoolItem, PoolItemSource, Source, SourceFetch, Subscription, User
 
@@ -36,6 +37,9 @@ HASH_MIN_TEXT = 200  # content-hash dedupe only when the summary is long enough 
 RETRY_FAILED_AFTER = timedelta(hours=24)
 MAX_AGE_DAYS = 7  # feed entries older than this are not pooled (archive-style feeds list hundreds of old posts)
 MAX_EXTRACT_PER_SOURCE = 30  # newest first; only items inside the lookback window are extracted
+MAX_MEDIA_PROBE_PER_SOURCE = 10  # og:image look-ups per source per cycle for items whose feed carried no media
+NO_PROBE_HOSTS = ("github.com", "reddit.com", "redd.it", "news.ycombinator.com", "huggingface.co", "x.com", "twitter.com",
+                  "youtube.com", "youtu.be")  # generic cards / bot walls / media already known
 PLUGIN_NAMES = {"hn": "hn", "github_search": "github", "hf_trending": "hf", "ossinsight": "ossinsight"}
 
 
@@ -150,10 +154,11 @@ def _feed_rows(body: bytes, ctype: str) -> list[dict] | None:
     for e in core.parse_feed(body):
         if not e.get("url"):
             continue
+        extra = {k: e[k] for k in ("enclosure", "media") if e.get(k)}
         rows.append({
             "url": e["url"], "title": e.get("title") or "", "published_at": e.get("published_at"),
             "listing_text": e.get("listing_text") or "", "kind": "release" if "/releases" in e["url"] else "post",
-            "extra": {"enclosure": e["enclosure"]} if e.get("enclosure") else None,
+            "extra": extra or None,
         })
     return rows
 
@@ -186,10 +191,17 @@ async def _run_plugin(src: Source, fetcher: Fetcher, start: datetime, end: datet
     items, stats = await asyncio.to_thread(plugins.REGISTRY[plugin], ctx)
     if not items and stats.get("errors"):
         raise core.FetchError(";".join(str(e) for e in stats["errors"][:3]))
-    return [{"url": it.get("url") or "", "title": it.get("title") or "", "published_at": it.get("published_at"),
-             "listing_text": it.get("listing_text") or "", "kind": it.get("kind"),
-             "extra": {k: it[k] for k in ("points", "comments", "downloads", "language", "topics") if it.get(k) is not None} or None}
-            for it in items if it.get("url")]
+    out = []
+    for it in items:
+        if not it.get("url"):
+            continue
+        extra = {k: it[k] for k in ("points", "comments", "downloads", "language", "topics") if it.get(k) is not None}
+        media = content.link_media(it["url"])  # an HN story that is a YouTube video / direct media file
+        if media:
+            extra["media"] = media
+        out.append({"url": it["url"], "title": it.get("title") or "", "published_at": it.get("published_at"),
+                    "listing_text": it.get("listing_text") or "", "kind": it.get("kind"), "extra": extra or None})
+    return out
 
 
 async def _fetch_source(src: Source, fetcher: Fetcher, start: datetime, end: datetime) -> tuple[str, str | None, list[dict]]:
@@ -209,6 +221,46 @@ async def _fetch_source(src: Source, fetcher: Fetcher, start: datetime, end: dat
         return _scrub(f"failed:{exc.reason}")[:64], None, []
     except Exception as exc:  # noqa: BLE001 - one bad source never aborts the cycle
         return f"failed:{type(exc).__name__}"[:64], None, []
+
+
+# ----------------------------------------------------------------------------------------------- media probe
+
+def _needs_probe(item: PoolItem, src: Source) -> bool:
+    """Lead image wanted: no image / media yet, never probed, not extracted (extraction already reads og:image)."""
+    extra = item.extra or {}
+    if item.image or extra.get("media") or extra.get("og_probe") or src.content_extractor:
+        return False
+    host = (urllib.parse.urlsplit(item.url or "").hostname or "").lower()
+    if not host or any(host == h or host.endswith("." + h) for h in NO_PROBE_HOSTS):
+        return False
+    return not core._is_media(item.url or "")
+
+
+async def _probe_media(db, items: list[PoolItem], fetcher: Fetcher, concurrency: int, report: dict) -> None:
+    """og:image / twitter:image of article pages (regex over the page head, no full-text extraction). One attempt per
+    item: the outcome is kept in ``extra.og_probe`` so a page is never re-fetched for this."""
+    from newsd.collector.media import og_image_from_html
+
+    sem = asyncio.Semaphore(max(1, concurrency))
+
+    async def one(item: PoolItem):
+        async with sem:
+            try:
+                resp = await fetcher.get(item.url)
+            except Exception:  # noqa: BLE001 - unsafe URL, HTTP error, timeout: no image, never fatal
+                return item, None, "failed"
+            if "html" not in resp.content_type.lower():
+                return item, None, "none"
+            head = resp.text()[:300_000]
+            img = og_image_from_html(head, resp.final_url or item.url)
+            return item, content.http_url(img) or None, "ok" if img else "none"
+
+    for item, img, status in await asyncio.gather(*(one(i) for i in items)):
+        item.extra = {**(item.extra or {}), "og_probe": status}
+        if img and not item.image:
+            item.image = img
+            report["media_probed"] += 1
+    db.commit()
 
 
 # ----------------------------------------------------------------------------------------------- pool writes
@@ -236,10 +288,12 @@ def upsert_item(db, src: Source, row: dict, cycle: str, now: datetime) -> tuple[
         item = db.scalar(select(PoolItem).where(PoolItem.content_hash == chash))
     created = item is None
     published = _naive(core.parse_time(row.get("published_at")))
+    media = (row.get("extra") or {}).get("media") or []
+    image = content.lead_image(media)
     if created:
         item = PoolItem(url_key=key, canonical_url=canonical, url=row["url"], content_hash=chash, title=title,
                         summary=summary, published_at=published, kind=row.get("kind"), extra=row.get("extra"),
-                        first_source_id=src.id, first_seen_at=now, last_seen_at=now)
+                        image=image, first_source_id=src.id, first_seen_at=now, last_seen_at=now)
         db.add(item)
         db.flush()
     else:
@@ -252,6 +306,10 @@ def upsert_item(db, src: Source, row: dict, cycle: str, now: datetime) -> tuple[
             item.published_at = published
         if not item.title and title:
             item.title = title
+        if media and not (item.extra or {}).get("media"):
+            item.extra = {**(item.extra or {}), "media": media}  # new dict: JSON columns only track reassignment
+        if image and not item.image:
+            item.image = image
     link = db.scalar(select(PoolItemSource).where(PoolItemSource.item_id == item.id, PoolItemSource.source_id == src.id))
     if link is None:
         db.add(PoolItemSource(item_id=item.id, source_id=src.id, url=row["url"], fetched_at=now, cycle=cycle))
@@ -340,14 +398,18 @@ async def _extract_items(db, todo: list[tuple[PoolItem, Source]], fetcher: Fetch
 
 async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = None, kinds: set[str] | None = None,
                     keys: set[str] | None = None, extract: bool = True, lookback_hours: float = 26, concurrency: int = 8,
-                    max_age_days: float = MAX_AGE_DAYS, max_extract_per_source: int = MAX_EXTRACT_PER_SOURCE) -> dict:
+                    max_age_days: float = MAX_AGE_DAYS, max_extract_per_source: int = MAX_EXTRACT_PER_SOURCE,
+                    media_probe: bool | None = None) -> dict:
     cycle = cycle or cycle_key()
     now = _utcnow()
     end, start = now, now - timedelta(hours=lookback_hours)
     own = fetcher is None
     fetcher = fetcher or Fetcher()
     report = {"cycle": cycle, "sources": {}, "fetched_sources": 0, "shared_sources": 0, "new_items": 0, "seen_items": 0,
-              "too_old": 0, "extracted": 0, "extract_failed": 0, "extract_cache_hits": 0}
+              "too_old": 0, "extracted": 0, "extract_failed": 0, "extract_cache_hits": 0, "media_probed": 0}
+    if media_probe is None:
+        media_probe = extract and os.environ.get("NEWSD_MEDIA_PROBE", "1") != "0"
+    probes: list[PoolItem] = []
     oldest = now - timedelta(days=max_age_days)
     try:
         sources = [s for s in subscribed_sources(db) if (not kinds or s.kind in kinds) and (not keys or s.key in keys)]
@@ -362,7 +424,7 @@ async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = N
         results = await asyncio.gather(*(_fetch_source(src, fetcher, start, end) for src, _ in claimed))
         todo: list[tuple[PoolItem, Source]] = []
         for (src, frow), (status, url, rows) in zip(claimed, results):
-            new, kept, candidates = 0, 0, []
+            new, kept, candidates, recent_items = 0, 0, [], []
             for r in rows:
                 published = _naive(core.parse_time(r.get("published_at")))
                 if published is not None and published < oldest:
@@ -374,8 +436,14 @@ async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = N
                 recent = item.published_at >= start if item.published_at else item.first_seen_at >= now
                 if src.content_extractor and item.extraction_id is None and recent:
                     candidates.append(item)
+                if recent:
+                    recent_items.append(item)
             candidates.sort(key=lambda i: i.published_at or now, reverse=True)
             todo.extend((item, src) for item in candidates[:max(0, max_extract_per_source)])
+            if media_probe:
+                want = [i for i in recent_items if _needs_probe(i, src) and i not in probes]
+                want.sort(key=lambda i: i.published_at or now, reverse=True)
+                probes.extend(want[:MAX_MEDIA_PROBE_PER_SOURCE])
             frow.status, frow.url, frow.entries, frow.new_items, frow.finished_at = status, url, len(rows), new, _utcnow()
             db.commit()
             report["sources"][src.key] = status
@@ -384,6 +452,8 @@ async def run_cycle(db, cycle: str | None = None, *, fetcher: Fetcher | None = N
             report["seen_items"] += kept - new
         if extract and todo:
             await _extract_items(db, todo, fetcher, concurrency, report)
+        if probes:
+            await _probe_media(db, probes, fetcher, concurrency, report)
         report["requests"] = fetcher.request_count
         return report
     finally:

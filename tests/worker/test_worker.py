@@ -73,7 +73,7 @@ def test_one_tick_end_to_end_with_mocked_network_and_llm(db, net, monkeypatch):
     assert rep["issue_key"] == "2026-10-21" and rep["cycle"] == "2026-10-21T07:00"
     collect, issues = rep["stages"]
     assert (collect["stage"], collect["status"]) == ("collect", "ok")
-    assert collect["counts"]["new_items"] == 3 and collect["counts"]["fetched_sources"] == 1 and collect["counts"]["requests"] == 1
+    assert collect["counts"]["new_items"] == 3 and collect["counts"]["fetched_sources"] == 1 and collect["counts"]["requests"] == 4  # feed + one og:image look-up per new article
     assert net.count(FEED) == 1  # two subscribers, one request
     assert (issues["stage"], issues["status"], issues["counts"]["users_ok"], issues["counts"]["items_out"]) == ("issues", "ok", 2, 6)
     by_user = {u["user"]: u for u in rep["users"]}

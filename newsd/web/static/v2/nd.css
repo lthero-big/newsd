@@ -66,3 +66,14 @@ body.tfade *{transition:background-color .4s,color .4s,border-color .4s!importan
 .prov .handle{border:0;background:none;padding:0;color:var(--muted);cursor:grab;font-size:16px;line-height:1}
 .prov .pbody{min-width:0}.prov .sub span{overflow-wrap:anywhere}
 .prof-list .prof{padding:10px 0;border-bottom:1px solid var(--line)}.prof-list .prof:last-child{border-bottom:0}
+
+/* card media (DEPTAI-216) */
+.card .cmedia{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+.card .cmedia img{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:calc(var(--radius) * .6);background:var(--bg)}
+.card .cmedia video{display:block;width:100%;max-height:320px;border-radius:calc(var(--radius) * .6);background:#000}
+.card .cmedia audio{display:block;width:100%;height:36px}
+.card .cm-play{position:relative;display:block;color:#fff;text-decoration:none}
+.card .cm-play span{position:absolute;left:10px;bottom:10px;font:600 12px var(--font-mono);background:rgba(0,0,0,.66);padding:4px 8px;border-radius:999px}
+.card .cm-play:not(:has(img)) span{position:static;display:inline-block;color:var(--ink);background:var(--bg);border:1px solid var(--line)}
+.card.mini .cmedia{flex-direction:row}.card.mini .cmedia img{max-height:120px}.card.mini .cmedia video{max-height:160px}
+.feature .art{overflow:hidden}.feature .art .art-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.feature .art span{z-index:1}

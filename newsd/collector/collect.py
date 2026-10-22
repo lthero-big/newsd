@@ -523,6 +523,30 @@ def _atom_link(node) -> str:
     return alt or _child_text(node, {"link"})
 
 
+def entry_media(node, body: str, link: str) -> list[dict]:
+    """Images / audio / video of one feed entry (DEPTAI-216): RSS <enclosure>, Atom link rel=enclosure, Media RSS
+    media:content / media:thumbnail (also inside media:group), <img>/<video> and YouTube / v.redd.it links in the body,
+    and the entry link itself when it is a media URL. Only http(s); avatars, badges and icons are dropped."""
+    from newsd import content as C
+
+    found = []
+    for child in node.iter():
+        if child is node:
+            continue
+        ln = _local_name(child.tag)
+        ns = child.tag.split("}", 1)[0] if child.tag.startswith("{") else ""
+        if ln == "enclosure" or (ln == "link" and (child.get("rel") or "") == "enclosure"):
+            found.append(C.media_entry(child.get("url") or child.get("href") or "", child.get("type") or "", "",
+                                       base=link))
+        elif ln in ("content", "thumbnail") and child.get("url") and ("search.yahoo.com/mrss" in ns or ln == "thumbnail"):
+            found.append(C.media_entry(child.get("url"), child.get("type") or "",
+                                       "image" if ln == "thumbnail" else child.get("medium") or "",
+                                       child.get("width"), child.get("height"), base=link))
+    found += C.media_from_html(body, link)
+    found += C.link_media(link)
+    return C.dedupe_media([e for e in found if e])
+
+
 def parse_feed(xml_bytes: bytes) -> list[dict]:
     if not xml_bytes:
         return []
@@ -563,6 +587,9 @@ def parse_feed(xml_bytes: bytes) -> list[dict]:
         }
         if enc:
             row["enclosure"] = enc
+        media = entry_media(node, content, link)
+        if media:
+            row["media"] = media
         out.append(row)
     return out
 
@@ -1168,6 +1195,7 @@ def fetch_rss(sources: dict, start: datetime, end: datetime, timeout: int, cache
                     "comments": None,
                     "listing_text": entry.get("listing_text") or "",
                     **({"enclosure": entry["enclosure"]} if entry.get("enclosure") else {}),
+                    **({"media": entry["media"]} if entry.get("media") else {}),
                     "source_links": [_link("rss", entry["url"])],
                     "feed": feed["id"],
                     "transport": "atom" if used and "atom" in used else "rss",

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
 from .auth import get_db, require_user
+from .content import safe_media
 from .llm import keys as llm_keys
 from .llm.client import LLMClient
 from .llm.process import _dedupe as ai_dedupe, _rerank as ai_rerank, _score_profile
@@ -275,6 +276,7 @@ def _item_dict(ii: IssueItem, p: PoolItem, srcs: dict, marks: dict, special: set
               "categories": ii.categories or [], "also": ii.also or [], "sources": [s.name for s in srcs.get(p.id, [])],
               "source_keys": [s.key for s in srcs.get(p.id, [])], "state": marks.get(p.id),
               "source_cat": source_label(srcs[p.id][0].key, srcs[p.id][0].kind) if srcs.get(p.id) else "rss",
+              "media": safe_media((p.extra or {}).get("media"), p.image, (p.extra or {}).get("enclosure"), p.url),
               "points": (p.extra or {}).get("points"), "comments": (p.extra or {}).get("comments")}
 
 
