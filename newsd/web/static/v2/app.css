@@ -337,6 +337,22 @@ html.pt-out.pt-prev .pt-page::after,html.pt-in.pt-prev .pt-page::after{backgroun
 .acts .a-down[aria-pressed=true]{color:var(--bg);background:var(--muted);border-color:var(--muted)}
 .acts .a-down span{font-size:11px}
 body[data-fb=like] .acts .a-down{display:none}
+/* 更多 menu (踩 / 删除) and the top-right 收起 button */
+.more-wrap{position:relative;display:inline-flex}
+.more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:118px;padding:4px;display:flex;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+.more-menu[hidden]{display:none}
+.more-menu.up{top:auto;bottom:calc(100% + 6px)}
+.acts .more-menu button{justify-content:flex-start;width:100%;border:0;border-radius:7px;background:transparent;height:30px;padding:0 10px;gap:8px;font-size:13px;color:var(--ink)}
+.acts .more-menu button:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.acts .more-menu em{font-style:normal}
+.acts .more-menu .a-down[aria-pressed=true]{color:var(--ink);background:color-mix(in srgb,var(--muted) 22%,transparent)}
+.acts .more-menu .a-del:hover{color:var(--danger)}
+.acts .a-more[aria-expanded=true]{color:var(--ink);border-color:color-mix(in srgb,var(--ink) 40%,var(--line))}
+.item.menu-open{z-index:20}
+.item > .card-fold{position:absolute;top:10px;right:10px;z-index:2;width:28px;height:28px;padding:0;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s,background .15s}
+.item > .card-fold svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.item > .card-fold:hover{color:var(--ink);border-color:var(--line);background:var(--bg)}
+.item:has(> .card-fold) > .meta{padding-right:30px}
 .seen{margin-top:14px;border:1px dashed var(--line);border-radius:var(--radius)}
 .seen[hidden]{display:none}
 .shbar{width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:13px}
@@ -467,7 +483,7 @@ table.lt .mod{white-space:nowrap}
 @media (max-width:640px){.ctop .back{display:none}}
 /* cards */
 .acts .a-down svg{transform:none}
-.acts .a-del:hover{color:var(--danger);border-color:var(--danger)}
+.acts .a-del:hover{color:var(--danger)}
 .item.deleting{transition:opacity .24s,transform .24s;opacity:0;transform:scale(.96)}
 .rdb{font:700 10.5px var(--font-mono);color:var(--muted);border:1px dashed var(--muted);padding:1px 5px;border-radius:4px;cursor:help}
 .item.ranked-down{opacity:.72}

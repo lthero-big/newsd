@@ -99,7 +99,7 @@
  const pop=b=>{if(!RM())b.animate([{transform:'scale(1)'},{transform:'scale(1.35)'},{transform:'scale(1)'}],{duration:320,easing:'cubic-bezier(.3,1.4,.5,1)'})};
  ND.paintCard=c=>{const v=+(c.dataset.vote||0),fav=c.dataset.fav==='1';
   const l=$('.a-like',c);if(l)l.setAttribute('aria-pressed',String(v===1));
-  const dn=$('.a-down',c);if(dn){dn.setAttribute('aria-pressed',String(v===-1));dn.title=v===-1?'已踩（点击取消）':'踩：减少相似推荐';dn.setAttribute('aria-label',dn.title)}
+  const dn=$('.a-down',c);if(dn){dn.setAttribute('aria-pressed',String(v===-1));dn.title=v===-1?'已踩（点击取消）':'踩：减少相似推荐';dn.setAttribute('aria-label',dn.title);const t=$('em',dn);if(t)t.textContent=v===-1?'取消踩':'踩'}
   c.classList.toggle('down',v===-1);const f=$('.a-fav',c);if(f){f.setAttribute('aria-pressed',String(fav));f.title=fav?'取消收藏':'收藏';f.setAttribute('aria-label',f.title)}};
  const sameCards=id=>$$(`.item[data-id="${id}"]`);
  const setAll=(id,k,v)=>sameCards(id).forEach(c=>{c.dataset[k]=v;ND.paintCard(c)});
@@ -108,7 +108,11 @@
  ND.fold=async(id,on)=>{const [ok,j]=await api('PUT',`/api/me/items/${id}/fold`,{folded:on});if(!ok){ND.error(j);return false}setAll(id,'folded',on?'1':'0');ND.emit({type:'fold',id,folded:on});return true};
  ND.del=async(id,on,prev)=>{const ok=await mark(id,on?'trash':(prev||null));if(!ok)return false;ND.paintTrash(on?1:-1);
   sameCards(id).forEach(c=>{c.dataset.fav=(!on&&prev==='favorite')?'1':'0';c.hidden=!!on;c.classList.remove('deleting');ND.paintCard(c)});ND.emit({type:'del',id,deleted:on});return true};
- document.addEventListener('click',async e=>{const b=e.target.closest('.acts button');if(!b)return;const c=b.closest('.item[data-id]');if(!c)return;const id=c.dataset.id;e.preventDefault();
+ const closeMenus=keep=>$$('.more-menu:not([hidden])').forEach(m=>{if(m===keep)return;m.hidden=true;const t=m.parentNode.querySelector('.a-more');t&&t.setAttribute('aria-expanded','false');m.closest('.item')?.classList.remove('menu-open')});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenus()});
+ document.addEventListener('click',async e=>{const b=e.target.closest('.acts button, .item > .a-fold');if(!b){if(!e.target.closest('.more-menu'))closeMenus();return}const c=b.closest('.item[data-id]');if(!c)return;const id=c.dataset.id;e.preventDefault();
+  if(b.classList.contains('a-more')){const m=b.nextElementSibling,open=m.hidden;closeMenus(m);m.hidden=!open;b.setAttribute('aria-expanded',String(open));c.classList.toggle('menu-open',open);if(open){const r=b.getBoundingClientRect();m.classList.toggle('up',r.bottom+96>innerHeight)}return}
+  closeMenus();
   const was=+(c.dataset.vote||0);
   if(b.classList.contains('a-like')){if(await vote(id,was===1?0:1)){ND.toast(was===1?'已取消赞':'已赞：多推相似内容',()=>vote(id,was));pop(b)}}
   else if(b.classList.contains('a-down')){if(await vote(id,was===-1?0:-1))ND.toast(was===-1?'已取消踩':'已踩：相似内容会减少',()=>vote(id,was))}
