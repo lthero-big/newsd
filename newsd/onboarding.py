@@ -22,14 +22,27 @@ PRESETS = {
     "creative-ai": ["reddit:StableDiffusion", "reddit:comfyui", "rss:comfyui-releases", "rss:diffusers-releases"],
     "agents": ["xq:agents", "xq:prompts", "plugin:github_search"],
 }
+# Followed X accounts join an interest by their catalog group (config/collect-sources.json x.accounts[].group), so the
+# default recommendations follow the catalog. 未分组 accounts stay in the catalog / default template only.
+X_GROUPS = {
+    "ai-news": ("官方·LLM", "特别关注", "中文区", "英文区"),
+    "agents": ("特别关注",),
+    "creative-ai": ("官方·图像/工作流",),
+}
 router = APIRouter(prefix="/api")
 
 
 def preset_groups(db) -> list[dict]:
-    live = {k for (k,) in db.execute(select(Source.key).where(Source.enabled.is_(True)))}
+    rows = db.execute(select(Source.key, Source.kind, Source.config).where(Source.enabled.is_(True)).order_by(Source.id)).all()
+    live = {k for k, _, _ in rows}
+    x_by_group: dict[str, list[str]] = {}
+    for k, kind, cfg in rows:  # catalog order
+        if kind == "x_account":
+            x_by_group.setdefault((cfg or {}).get("group") or "未分组", []).append(k)
     out = []
     for name, prof in all_profiles().items():
         keys = [k for k in PRESETS.get(name, []) if k in live]
+        keys += [k for g in X_GROUPS.get(name, ()) for k in x_by_group.get(g, []) if k not in keys]
         out.append({"name": name, "title": prof.title, "sections": prof.sections, "sources": keys})
     return out
 

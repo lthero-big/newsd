@@ -186,7 +186,307 @@
         "max_results": 50
       }
     ],
-    "accounts": [],
+    "accounts": [
+      {
+        "handle": "TechieBySA",
+        "group": "官方·图像/工作流",
+        "enabled": true
+      },
+      {
+        "handle": "AizaAi12",
+        "group": "官方·图像/工作流",
+        "enabled": true
+      },
+      {
+        "handle": "Sairah_0",
+        "group": "官方·图像/工作流",
+        "enabled": true
+      },
+      {
+        "handle": "SpaceXAI",
+        "group": "官方·LLM",
+        "enabled": true,
+        "keywords": [
+          "grok imagine"
+        ]
+      },
+      {
+        "handle": "OpenAI",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "OpenAI",
+        "keywords": [
+          "gpt-image"
+        ]
+      },
+      {
+        "handle": "AnthropicAI",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Anthropic"
+      },
+      {
+        "handle": "GoogleDeepMind",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Google DeepMind",
+        "keywords": [
+          "nano banana"
+        ]
+      },
+      {
+        "handle": "GeminiApp",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Google Gemini"
+      },
+      {
+        "handle": "Alibaba_Qwen",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Qwen"
+      },
+      {
+        "handle": "MiniMax_AI",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "MiniMax (official)"
+      },
+      {
+        "handle": "Kimi_Moonshot",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Kimi.ai"
+      },
+      {
+        "handle": "XiaomiMiMo",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Xiaomi MiMo"
+      },
+      {
+        "handle": "deepseek_ai",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "DeepSeek"
+      },
+      {
+        "handle": "Zai_org",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Z.ai"
+      },
+      {
+        "handle": "arena",
+        "group": "官方·LLM",
+        "enabled": true,
+        "display_name": "Arena.ai"
+      },
+      {
+        "handle": "bfl_ml",
+        "group": "官方·图像/工作流",
+        "enabled": true,
+        "display_name": "BlackForestLabsAI - Unofficial"
+      },
+      {
+        "handle": "ComfyUI",
+        "group": "官方·图像/工作流",
+        "enabled": true,
+        "display_name": "ComfyUI"
+      },
+      {
+        "handle": "Kijaidesign",
+        "group": "官方·图像/工作流",
+        "enabled": true,
+        "display_name": "Jukka Seppänen (kijai)"
+      },
+      {
+        "handle": "poteto",
+        "group": "特别关注",
+        "enabled": true,
+        "display_name": "lauren"
+      },
+      {
+        "handle": "thsottiaux",
+        "group": "特别关注",
+        "enabled": true,
+        "display_name": "Tibo"
+      },
+      {
+        "handle": "karpathy",
+        "group": "特别关注",
+        "enabled": true,
+        "display_name": "Andrej Karpathy"
+      },
+      {
+        "handle": "dotey",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "宝玉"
+      },
+      {
+        "handle": "vista8",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "向阳乔木"
+      },
+      {
+        "handle": "Gorden_Sun",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "Gorden Sun"
+      },
+      {
+        "handle": "op7418",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "歸藏(guizang.ai)"
+      },
+      {
+        "handle": "oran_ge",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "Orange AI"
+      },
+      {
+        "handle": "Khazix0918",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "数字生命卡兹克"
+      },
+      {
+        "handle": "lxfater",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "铁锤人"
+      },
+      {
+        "handle": "aigclink",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "AIGCLINK"
+      },
+      {
+        "handle": "hylarucoder",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "海拉鲁编程客"
+      },
+      {
+        "handle": "ZhihuFrontier",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "Zhihu Frontier"
+      },
+      {
+        "handle": "karminski3",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "karminski-牙医"
+      },
+      {
+        "handle": "yan5xu",
+        "group": "中文区",
+        "enabled": true,
+        "display_name": "yan5xu"
+      },
+      {
+        "handle": "simonw",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Simon Willison"
+      },
+      {
+        "handle": "swyx",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "swyx"
+      },
+      {
+        "handle": "omarsar0",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "elvis"
+      },
+      {
+        "handle": "_akhaliq",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "AK"
+      },
+      {
+        "handle": "ArtificialAnlys",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Artificial Analysis"
+      },
+      {
+        "handle": "hwchase17",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Harrison Chase"
+      },
+      {
+        "handle": "OfficialLoganK",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Logan Kilpatrick"
+      },
+      {
+        "handle": "steipete",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Peter Steinberger 🦞"
+      },
+      {
+        "handle": "emollick",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "Ethan Mollick"
+      },
+      {
+        "handle": "ClementDelangue",
+        "group": "英文区",
+        "enabled": true,
+        "display_name": "clem 🤗"
+      },
+      {
+        "handle": "elonmusk",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "Elon Musk"
+      },
+      {
+        "handle": "huxlab",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "Hux"
+      },
+      {
+        "handle": "typesafeai",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "TypeSafe AI"
+      },
+      {
+        "handle": "jiayuan_jy",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "Jiayuan (JY) Zhang"
+      },
+      {
+        "handle": "sharp_maker",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "++++"
+      },
+      {
+        "handle": "akatz_ai",
+        "group": "未分组",
+        "enabled": true,
+        "display_name": "akatz"
+      }
+    ],
     "min_likes": 20,
     "low_min_likes": 3,
     "low_threshold_groups": [

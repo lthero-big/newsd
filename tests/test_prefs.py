@@ -94,3 +94,23 @@ def test_legacy_create_all_db_is_stamped(tmp_path, monkeypatch):
     init_db()
     assert "sources" in inspect(get_engine()).get_table_names()
     reset_engine(); reset_settings()
+
+
+def test_default_x_accounts_are_recommended_by_group(client):
+    """The followed X accounts from config/collect-sources.json join the onboarding interests by catalog group."""
+    _import()
+    from newsd.db import SessionLocal
+    from newsd.onboarding import preset_groups
+    cfg = json.loads((ROOT / "config/collect-sources.json").read_text())
+    by_group = {}
+    for a in cfg["x"]["accounts"]:
+        by_group.setdefault(a["group"], []).append("xa:" + a["handle"])
+    db = SessionLocal()
+    try:
+        groups = {g["name"]: g["sources"] for g in preset_groups(db)}
+    finally:
+        db.close()
+    assert set(by_group["官方·LLM"]) | set(by_group["中文区"]) <= set(groups["ai-news"])
+    assert set(by_group["官方·图像/工作流"]) <= set(groups["creative-ai"])
+    assert not set(by_group.get("未分组", [])) & {k for v in groups.values() for k in v}
+    assert all(len(v) == len(set(v)) for v in groups.values())
