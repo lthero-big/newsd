@@ -31,5 +31,14 @@
  <section class="card"><div class="row sp"><b>今日任务</b><a class="btn sm ghost" href="/admin/logs">日志与任务 →</a></div>
   <div class="ov-kpis" style="grid-template-columns:repeat(3,1fr);margin-top:10px"><div><span class="muted" style="font-size:12px">运行</span><b style="font:400 30px var(--font-display);display:block">{{ ov.runs_today }}</b></div><div><span class="muted" style="font-size:12px">失败</span><b style="font:400 30px var(--font-display);display:block{% if ov.runs_failed %};color:var(--danger){% endif %}">{{ ov.runs_failed }}</b></div><div><span class="muted" style="font-size:12px">推送成功率</span><b style="font:400 30px var(--font-display);display:block">{{ (ov.push_rate ~ '%') if ov.push_rate is not none else '—' }}</b></div></div></section>
 </div>
+<section class="card" id="xAdm" style="margin-top:14px"><div class="row sp"><b>X 信息源（Grok Bot 代取）</b><button class="switch" type="button" role="switch" aria-checked="false" id="xaOn" aria-label="启用 X 信息源"></button></div>
+ <p class="muted" style="font-size:13px;margin:6px 0 10px">默认关闭。开启后，范围内的用户能在「订阅源」里添加 X 账号 / 关键词，由 Grok Bot 用自己的只读权限抓公开内容写回 newsd。没有 Grok Bot 的部署保持关闭即可。</p>
+ <div class="row wrap-r" style="gap:12px;align-items:end">
+  <label class="field" style="margin:0">开放给<select class="input" id="xaScope" style="width:auto"><option value="all">所有用户</option><option value="users">指定用户</option></select></label>
+  <label class="field" style="margin:0" id="xaUsersRow" hidden>用户 ID（逗号分隔）<input class="input" id="xaUsers" style="width:180px"></label>
+  <label class="field" style="margin:0">每人上限<input class="input" id="xaMax" type="number" min="0" max="200" style="width:90px"></label>
+  <label class="field" style="margin:0">全站每日读取上限<input class="input" id="xaCap" type="number" min="0" max="1000" style="width:110px"></label>
+  <button class="btn primary" id="xaSave" type="button">保存</button></div>
+ <div id="xaUse" class="muted" style="font-size:13px;margin-top:8px"></div></section>
 {% endblock %}
-{% block script %}<script src="/static/v2/admin-update.js?v={{ asset_v }}"></script>{% endblock %}
+{% block script %}<script src="/static/v2/admin-update.js?v={{ asset_v }}"></script><script src="/static/v2/x-admin.js?v={{ asset_v }}"></script>{% endblock %}

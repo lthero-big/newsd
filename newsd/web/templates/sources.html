@@ -6,6 +6,10 @@
 <div class="src-layout"><nav class="cat-list" role="tablist" aria-label="源类别" id="cats"></nav><div id="pane"><p class="muted">加载中…</p></div></div>
 <p class="muted" style="font-size:13px;margin-top:18px">已订阅 {{ n_subs }} 个源。也可以 <a href="/welcome" style="color:var(--accent)">按兴趣一键订阅</a>，或 <button class="linkish" id="applyDefault" type="button">套用推荐订阅</button>。</p>
 
+{% if x_ok %}<section class="card" id="xFollow" hidden style="margin-top:18px"><div class="row sp"><b>X 关注（由 Grok Bot 代取公开内容）</b><span class="muted mono" style="font-size:12px" id="xMeta"></span></div>
+ <p class="muted" style="font-size:13px;margin:6px 0 10px">填 <code>@账号</code> 或关键词，会出现在「X」类别里，跟其他源一样打分、过滤、推送。X 读取额度全站共享，所以每人数量有上限。</p>
+ <div class="input-row"><input class="input" id="xIn" maxlength="120" placeholder="@karpathy 或 nano banana prompt" aria-label="X 账号或关键词"><button class="btn primary" id="xAdd" type="button">添加</button></div>
+ <div id="xList" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px"></div></section>{% endif %}
 <div class="overlay" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dT"><div class="modal">
  <header><h3 id="dT">添加源</h3><button class="btn ghost icon" data-close type="button" aria-label="关闭">✕</button></header>
  <div class="body">
@@ -29,4 +33,4 @@
  <footer><span style="flex:1"></span><button class="btn ghost" data-close type="button">取消</button><button class="btn primary" id="zSave" type="button">新建</button></footer>
 </div></div>
 {% endblock %}
-{% block script %}<script>window.ND_ZONES={{ zones|tojson }};</script><script src="/static/v2/dnd.js?v={{ asset_v }}"></script><script src="/static/v2/sources.js?v={{ asset_v }}"></script>{% endblock %}
+{% block script %}<script>window.ND_ZONES={{ zones|tojson }};</script><script src="/static/v2/dnd.js?v={{ asset_v }}"></script><script src="/static/v2/sources.js?v={{ asset_v }}"></script>{% if x_ok %}<script src="/static/v2/x-follow.js?v={{ asset_v }}"></script>{% endif %}{% endblock %}

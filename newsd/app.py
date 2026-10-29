@@ -42,6 +42,8 @@ def create_app(migrate: bool = True) -> FastAPI:
     from .admin_console import router as console_router
     from .update_api import router as update_router
     from .cron import router as cron_router
+    from .ximport import router as ximport_router
+    app.include_router(ximport_router)
     app.include_router(zones_router, dependencies=[Depends(guard("src"))])
     app.include_router(push_router, dependencies=[Depends(guard("push"))])
     for r in (marks_router, feedback_router, userprefs_router, onboarding_router, admin_router, worker_runs_router, console_router,

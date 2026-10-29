@@ -234,7 +234,9 @@ def sources_page(request: Request, user=Depends(current_user), db=Depends(get_db
     """订阅源 (DEPTAI-216 3b): categories, zones and the sources in them; the page script talks to /api/me/zones."""
     if user is None:
         return login_redirect()
+    from .ximport import allowed as x_allowed
     return render(request, "sources.html", user, db, area="console", page="sources", zones=zone_view(db, user.id),
+                  x_ok=x_allowed(db, user),
                   n_subs=db.scalar(select(func.count()).select_from(Subscription).where(Subscription.user_id == user.id)) or 0)
 
 
