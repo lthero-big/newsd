@@ -320,6 +320,8 @@ html.pt-out.pt-prev .pt-page::after,html.pt-in.pt-prev .pt-page::after{backgroun
 .ed{display:grid;grid-template-columns:1.25fr 1fr;gap:10px}.ed .rest{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
 .eside{display:flex;flex-direction:column;gap:8px}
 .item{grid-column:auto;gap:8px;padding:14px}
+/* Lead must not stretch to the side-column height (empty slab under GPT-6 Cyber etc.). */
+.ed .elead,.ed .item.lead{align-self:start;height:fit-content}
 .item.lead{grid-column:auto;grid-row:auto;min-height:0;justify-content:flex-start;background:var(--surface);border-top:3px solid var(--ink)}
 .item.lead h3{font:800 clamp(18px,2.2vw,24px)/1.25 var(--font-display)}
 .item.lead p{font-size:14px;color:var(--ink);opacity:.85}
