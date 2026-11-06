@@ -123,8 +123,15 @@ def _issue_page(request, user, db, key: str | None):
         # headline / feature card: prefer real headlines over bare release tags like "b11787"
         good = [i for i in shown if not i["ranked_down"] and len(i["title_translated"] or i["title"]) >= 16] or shown
         headline = good[0] if good else None
-        feature = next((i for i in good if i is not headline and (i["summary_translated"] or i["summary"])),
-                       next((i for i in good if i is not headline), None))
+        # Prefer a cover image for the hero feature so we don't enlarge a text-only item into the 16:9 art slot.
+        def _has_cover(i):
+            return bool((i.get("media") or {}).get("image"))
+        feature = next((i for i in good if i is not headline and _has_cover(i) and (i["summary_translated"] or i["summary"])), None)
+        if feature is None:
+            feature = next((i for i in good if i is not headline and _has_cover(i)), None)
+        if feature is None:
+            feature = next((i for i in good if i is not headline and (i["summary_translated"] or i["summary"])),
+                           next((i for i in good if i is not headline), None))
         tags = Counter(i["group"] for i in shown if i.get("group")).most_common(8)
         if re.fullmatch(r"\d{4}-\d{2}-\d{2}", issue.key):
             d = date.fromisoformat(issue.key)

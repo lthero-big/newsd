@@ -69,11 +69,11 @@ body.tfade *{transition:background-color .4s,color .4s,border-color .4s!importan
 
 /* card media (DEPTAI-216) */
 .card .cmedia{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
-.card .cmedia img{display:block;width:100%;max-height:260px;object-fit:cover;border-radius:calc(var(--radius) * .6);background:var(--bg)}
+.card .cmedia img{display:block;width:100%;max-height:200px;object-fit:cover;border-radius:calc(var(--radius) * .6);background:var(--bg)}
 .card .cmedia video{display:block;width:100%;max-height:320px;border-radius:calc(var(--radius) * .6);background:#000}
 .card .cmedia audio{display:block;width:100%;height:36px}
 .card .cm-play{position:relative;display:block;color:#fff;text-decoration:none}
 .card .cm-play span{position:absolute;left:10px;bottom:10px;font:600 12px var(--font-mono);background:rgba(0,0,0,.66);padding:4px 8px;border-radius:999px}
 .card .cm-play:not(:has(img)) span{position:static;display:inline-block;color:var(--ink);background:var(--bg);border:1px solid var(--line)}
-.card.mini .cmedia{flex-direction:row}.card.mini .cmedia img{max-height:120px}.card.mini .cmedia video{max-height:160px}
+.card.mini .cmedia{flex-direction:row}.card.mini .cmedia img{max-height:96px}.card.mini .cmedia video{max-height:140px}
 .feature .art{overflow:hidden}.feature .art .art-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.feature .art span{z-index:1}
