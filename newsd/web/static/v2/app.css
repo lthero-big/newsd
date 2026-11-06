@@ -312,19 +312,22 @@ html.pt-out.pt-prev .pt-page::after,html.pt-in.pt-prev .pt-page::after{backgroun
 .modcards small{font:12px var(--font-mono);color:var(--muted)}.modcards b{font:700 22px var(--font-display)}.modcards .bar{grid-column:1/-1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}.modcards .bar i{display:block;height:100%;background:var(--accent);width:var(--w)}
 .filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0 4px}
 .filters .chip.newc[aria-pressed=false]{border-color:var(--accent);color:var(--accent)}
-.module{margin:16px 0 4px}
-.mhead{display:flex;align-items:baseline;gap:12px;border-bottom:3px double var(--ink);padding-bottom:6px;margin-bottom:10px;width:100%;background:none;border-top:0;border-left:0;border-right:0;cursor:pointer;text-align:left;color:inherit}
+.module{margin:12px 0 2px}
+.mhead{display:flex;align-items:baseline;gap:12px;border-bottom:3px double var(--ink);padding-bottom:4px;margin-bottom:8px;width:100%;background:none;border-top:0;border-left:0;border-right:0;cursor:pointer;text-align:left;color:inherit}
 .mhead .no{font:700 12px var(--font-mono);color:var(--accent)}.mhead h2{margin:0;font:italic 800 26px/1 var(--font-display)}.mhead small{color:var(--muted);font-size:13px}.mhead .n{margin-left:auto;font:700 13px var(--font-mono)}
 .mhead .chev{font-size:12px;color:var(--muted);transition:transform .25s}.module.collapsed .mhead .chev{transform:rotate(-90deg)}
 .module.collapsed .ed,.module.collapsed .seen{display:none}
-.ed{display:grid;grid-template-columns:1.25fr 1fr;gap:10px}.ed .rest{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
-.eside{display:flex;flex-direction:column;gap:8px}
-.item{grid-column:auto;gap:8px;padding:14px}
-/* Lead must not stretch to the side-column height (empty slab under GPT-6 Cyber etc.). */
-.ed .elead,.ed .item.lead{align-self:start;height:fit-content}
+.ed{display:grid;grid-template-columns:1fr;gap:10px}
+/* Stack lead → mini row → rest so a short lead never leaves a tall empty slab beside 3 minis. */
+.ed .elead{min-width:0}
+.ed .eside{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ed .rest{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.item{grid-column:auto;gap:6px;padding:12px}
 .item.lead{grid-column:auto;grid-row:auto;min-height:0;justify-content:flex-start;background:var(--surface);border-top:3px solid var(--ink)}
 .item.lead h3{font:800 clamp(18px,2.2vw,24px)/1.25 var(--font-display)}
 .item.lead p{font-size:14px;color:var(--ink);opacity:.85}
+.item.mini p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item.mini .cmedia{margin:4px 0 6px}
 .item .meta .src{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:600}
 .ci{font-style:normal;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:var(--surface-2);font-size:10px;font-weight:700;color:var(--ink)}
 .ci-x{background:#111;color:#fff}.ci-reddit{background:#ff4500;color:#fff}.ci-hn{background:#ff6600;color:#fff}.ci-rss{background:#f59e0b;color:#fff}.ci-github{background:#24292f;color:#fff}.ci-hf{background:#ffd21e}.ci-arxiv{background:#b31b1b;color:#fff}
@@ -367,7 +370,7 @@ body[data-fb=like] .acts .a-down{display:none}
 .slist small{font:11px var(--font-mono);color:var(--muted)}
 .item.fold-in{animation:foldIn .35s cubic-bezier(.22,1,.36,1)}@keyframes foldIn{from{opacity:0;transform:translateY(8px)}}
 .fbhint{font-size:12px;color:var(--muted)}
-@media (max-width:900px){.nd-hero,.ed{grid-template-columns:1fr}.modcards{grid-template-columns:1fr}.modcards a{border-right:0;border-bottom:1px solid var(--line)}.proof{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:900px){.nd-hero{grid-template-columns:1fr}.ed .eside{grid-template-columns:1fr}.modcards{grid-template-columns:1fr}.modcards a{border-right:0;border-bottom:1px solid var(--line)}.proof{grid-template-columns:repeat(2,1fr)}}
 
 /* ---- favorites ---- */
 .fav-head{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:end;padding:30px 0 10px}
